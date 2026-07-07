@@ -76,6 +76,11 @@
     background:var(--paper); color:var(--ink); border:1px solid var(--line);
     border-radius:999px; padding:9px 14px; font-size:0.78rem; cursor:pointer;
   }
+  #githubBtn{
+    background:#24292e; color:#fff; border:none;
+    border-radius:999px; padding:9px 14px; font-size:0.78rem; cursor:pointer;
+    font-weight:600;
+  }
   .grid-wrapper{
     display:flex; border:1px solid var(--line); border-radius:var(--radius);
     overflow:hidden; background:var(--paper);
@@ -145,6 +150,7 @@
         <button id="exportBtn" type="button">내보내기</button>
         <button id="importBtn" type="button">가져오기</button>
         <input id="importFile" type="file" accept="application/json" style="display:none">
+        <button id="githubBtn" type="button">🐙 GitHub</button>
         <button id="resetBtn" type="button">예시로 초기화</button>
         <button id="addBtn" type="button">+ 일정 추가</button>
       </div>
@@ -166,7 +172,28 @@
   <div class="saved-tag" id="savedTag"></div>
 </div>
 
-<div class="modal" id="modal">
+<div class="modal" id="githubModal">
+  <div class="modal-content">
+    <h2>🐙 GitHub 연동</h2>
+    <p style="font-size:0.8rem;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+      저장소: <strong>seulz-K/fam</strong> → <code>schedule.json</code><br>
+      토큰은 이 세션에서만 메모리에 보관되며 파일에 저장되지 않아요.
+    </p>
+    <div class="field">
+      <label for="gh-token">GitHub Personal Access Token</label>
+      <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    </div>
+    <div id="ghStatus" style="font-size:0.78rem;min-height:1.4em;margin-bottom:10px;color:var(--muted);"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" id="ghUploadBtn">⬆️ GitHub에 올리기</button>
+      <button type="button" class="btn btn-secondary" id="ghDownloadBtn">⬇️ GitHub에서 불러오기</button>
+      <button type="button" class="btn btn-secondary" id="ghCancelBtn" style="margin-left:auto;">닫기</button>
+    </div>
+    <p style="font-size:0.72rem;color:var(--muted);margin:12px 0 0;line-height:1.5;">
+      💡 토큰이 없으면 "불러오기"만 가능해요. 올리기는 토큰 필수.
+    </p>
+  </div>
+</div>
   <div class="modal-content">
     <h2 id="modalTitle">일정 추가</h2>
     <form id="modalForm">
@@ -419,6 +446,95 @@
     reader.readAsText(file);
   }
 
+
+  // ---------- github integration ----------
+  const GH_OWNER = 'seulz-K';
+  const GH_REPO  = 'fam';
+  const GH_PATH  = 'schedule.json';
+  const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+
+  let ghToken = ''; // session-only; never persisted to disk or storage
+
+  function setGhStatus(msg, isError){
+    const el = document.getElementById('ghStatus');
+    if(!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? '#D14343' : 'var(--muted)';
+  }
+
+  async function ghGetFileSHA(){
+    // Returns {sha, content} if file exists, or null if 404
+    const res = await fetch(GH_API, {
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    if(res.status === 404) return null;
+    if(!res.ok) throw new Error(`GitHub 오류 ${res.status}`);
+    const data = await res.json();
+    return { sha: data.sha };
+  }
+
+  async function ghUpload(){
+    const token = document.getElementById('gh-token').value.trim() || ghToken;
+    if(!token){ setGhStatus('토큰을 입력해주세요.', true); return; }
+    ghToken = token;
+    setGhStatus('올리는 중...');
+    try{
+      const existing = await ghGetFileSHA();
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
+      const body = {
+        message: `시간표 업데이트 ${new Date().toLocaleString('ko-KR')}`,
+        content,
+        ...(existing ? { sha: existing.sha } : {})
+      };
+      const res = await fetch(GH_API, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok){
+        const err = await res.json();
+        throw new Error(err.message || `오류 ${res.status}`);
+      }
+      setGhStatus('✅ GitHub에 성공적으로 올렸어요!');
+    }catch(e){
+      setGhStatus('❌ 실패: ' + e.message, true);
+    }
+  }
+
+  async function ghDownload(){
+    setGhStatus('불러오는 중...');
+    try{
+      // Use raw content URL so no auth needed for public repo
+      const raw = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main/${GH_PATH}`;
+      const res = await fetch(raw + '?t=' + Date.now());
+      if(res.status === 404) throw new Error('GitHub에 아직 파일이 없어요. 먼저 올리기를 해주세요.');
+      if(!res.ok) throw new Error(`오류 ${res.status}`);
+      const parsed = await res.json();
+      if(!Array.isArray(parsed.events)) throw new Error('파일 형식이 올바르지 않아요.');
+      if(!confirm('GitHub에서 불러온 내용으로 현재 시간표를 바꿀까요?')) return;
+      state.events = parsed.events;
+      state.personColors = parsed.personColors || {};
+      state.hiddenPersons = parsed.hiddenPersons || [];
+      saveData();
+      renderAll();
+      setGhStatus('✅ GitHub에서 성공적으로 불러왔어요!');
+    }catch(e){
+      setGhStatus('❌ 실패: ' + e.message, true);
+    }
+  }
+
+  function openGithubModal(){
+    document.getElementById('gh-token').value = ghToken;
+    setGhStatus('');
+    document.getElementById('githubModal').classList.add('open');
+  }
+  function closeGithubModal(){
+    document.getElementById('githubModal').classList.remove('open');
+  }
 
   function computeColWidth(){
     const available = gridScroll.clientWidth || 700;
@@ -881,6 +997,14 @@
     importFileInput.addEventListener('change', e=>{
       const file = e.target.files && e.target.files[0];
       if(file) importDataFromFile(file);
+    });
+
+    document.getElementById('githubBtn').addEventListener('click', openGithubModal);
+    document.getElementById('ghCancelBtn').addEventListener('click', closeGithubModal);
+    document.getElementById('ghUploadBtn').addEventListener('click', ghUpload);
+    document.getElementById('ghDownloadBtn').addEventListener('click', ghDownload);
+    document.getElementById('githubModal').addEventListener('click', e=>{
+      if(e.target === document.getElementById('githubModal')) closeGithubModal();
     });
   }
   init();
