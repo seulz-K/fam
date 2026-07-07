@@ -404,6 +404,18 @@
     background:#fff;color:var(--sub);cursor:pointer;transition:all .15s;
   }
   .ctab.on{background:var(--sea);border-color:var(--sea);color:#fff;font-weight:600;}
+  .ctab .ctab-x{
+    margin-left:5px;opacity:.65;font-size:11px;
+  }
+  .ctab .ctab-x:hover{opacity:1;}
+  .ctab-add{
+    border-style:dashed;color:var(--gold);border-color:#D8C9A5;background:transparent;
+  }
+  .ctab-add:hover{background:#F3E8D4;}
+  .ck-empty{
+    padding:26px 16px;text-align:center;color:var(--sub);font-size:13.5px;
+    background:#fff;border:1px dashed var(--line);border-radius:10px;
+  }
   .ck-status{
     font-family:var(--mono);font-size:11.5px;color:var(--sub);
     margin:0 0 14px;letter-spacing:.04em;
@@ -937,17 +949,21 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* ---------- 카테고리/그룹 정의 (탭 추가 시 여기만 확장) ---------- */
-const CK_GROUPS = {
-  medicine: ["🇰🇷 한국에서 미리 챙기기", "🏥 병원 처방 (출국 전)", "🇮🇩 현지에서 구매", "🍚 함께 챙기면 좋은 것"]
-};
-let ckCat = "medicine";
+/* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
+const DEFAULT_CATS = [
+  { slug:"medicine", name:"의약품",   icon:"💊", sort:0,
+    groups:["🇰🇷 한국에서 미리 챙기기","🏥 병원 처방 (출국 전)","🇮🇩 현지에서 구매","🍚 함께 챙기면 좋은 것"] },
+  { slug:"clothes",  name:"옷",       icon:"👕", sort:1, groups:["기본"] },
+  { slug:"gear",     name:"여행용품", icon:"🎒", sort:2, groups:["기본"] },
+  { slug:"snorkel",  name:"스노클링", icon:"🤿", sort:3, groups:["기본"] },
+  { slug:"prep",     name:"여행준비", icon:"📋", sort:4, groups:["기본"] }
+];
 
-/* ---------- 최초 1회 자동 시드 데이터 (DB가 비어있을 때만) ---------- */
+/* ---------- 의약품 최초 시드 아이템 ---------- */
 const CK_SEED = [
   { g:0, n:"모비콜 (변비약)", t:"현지 약국에 없는 경우 많음 — 미리 구매 필수" },
   { g:0, n:"타이레놀 (아세트아미노펜)", t:"해열제" },
@@ -970,7 +986,10 @@ const CK_SEED = [
   { g:3, n:"여행자보험", t:"출국 전 가입 확인" }
 ];
 
-/* ---------- DOM 헬퍼 ---------- */
+/* ---------- 상태 ---------- */
+let ckCats = [];      // 카테고리 목록 (DB)
+let ckCat  = null;    // 현재 선택된 카테고리 객체
+
 const $id = s => document.getElementById(s);
 let ckToastTimer;
 function ckToast(msg){
@@ -991,111 +1010,222 @@ async function ckInit(){
   }
   $id("ck-status").style.display = "block";
   $id("ck-add").style.display = "flex";
+  await ckLoadCats();
+}
 
-  // 그룹 셀렉트 채우기
-  const sel = $id("ck-in-grp");
-  sel.innerHTML = CK_GROUPS[ckCat].map((g,i)=>`<option value="${i}">${g}</option>`).join("");
+/* ---------- 카테고리 로드 (비어있으면 기본 시드) ---------- */
+async function ckLoadCats(){
+  let { data, error } = await sb.from("checklist_categories")
+    .select("*").order("sort").order("created_at");
+  if(error){ ckToast("카테고리 로드 실패: " + error.message); console.error(error); return; }
 
+  if(data.length === 0){
+    const { error: e2 } = await sb.from("checklist_categories").insert(DEFAULT_CATS);
+    if(e2){ ckToast("카테고리 초기화 실패: " + e2.message); console.error(e2); return; }
+    return ckLoadCats();
+  }
+  ckCats = data;
+  if(!ckCat || !ckCats.find(c=>c.slug===ckCat.slug)) ckCat = ckCats[0];
+  else ckCat = ckCats.find(c=>c.slug===ckCat.slug);
+  ckRenderTabs();
+  ckFillGroupSelect();
   await ckLoad();
 }
 
-/* ---------- 목록 로드 (비어있으면 시드 삽입) ---------- */
+/* ---------- 탭 렌더 ---------- */
+function ckRenderTabs(){
+  const bar = $id("ck-tabs");
+  bar.innerHTML = "";
+  ckCats.forEach(cat=>{
+    const b = document.createElement("button");
+    b.className = "ctab" + (cat.slug===ckCat.slug ? " on" : "");
+    b.innerHTML = `${esc(cat.icon)} ${esc(cat.name)}` +
+      (cat.slug===ckCat.slug ? ` <span class="ctab-x" title="이 분류 삭제">✕</span>` : "");
+    b.addEventListener("click", async (e)=>{
+      if(e.target.classList.contains("ctab-x")){ ckDeleteCat(cat); return; }
+      if(cat.slug === ckCat.slug) return;
+      ckCat = cat;
+      ckRenderTabs();
+      ckFillGroupSelect();
+      await ckLoad();
+    });
+    bar.appendChild(b);
+  });
+  // 분류 추가 버튼
+  const add = document.createElement("button");
+  add.className = "ctab ctab-add";
+  add.textContent = "＋ 분류 추가";
+  add.addEventListener("click", ckAddCat);
+  bar.appendChild(add);
+}
+
+/* ---------- 분류 추가 ---------- */
+async function ckAddCat(){
+  const name = prompt("새 분류 이름을 입력하세요 (예: 아이용품)");
+  if(!name || !name.trim()) return;
+  const icon = prompt("아이콘 이모지 (선택, 비워두면 📦)", "") || "📦";
+  const slug = "cat_" + Date.now();
+  const { error } = await sb.from("checklist_categories").insert({
+    slug, name: name.trim(), icon: icon.trim() || "📦",
+    groups: ["기본"], sort: ckCats.length
+  });
+  if(error){ ckToast("분류 추가 실패: " + error.message); return; }
+  ckCat = { slug };  // 새 탭으로 전환
+  ckToast("분류가 추가되었습니다 ✓");
+  ckLoadCats();
+}
+
+/* ---------- 분류 삭제 (항목 포함) ---------- */
+async function ckDeleteCat(cat){
+  const { count } = await sb.from("checklist_items")
+    .select("id", { count:"exact", head:true }).eq("category", cat.slug);
+  const msg = count > 0
+    ? `"${cat.name}" 분류와 그 안의 항목 ${count}개가 모두 삭제됩니다. 계속할까요?`
+    : `"${cat.name}" 분류를 삭제할까요?`;
+  if(!confirm(msg)) return;
+
+  await sb.from("checklist_items").delete().eq("category", cat.slug);
+  const { error } = await sb.from("checklist_categories").delete().eq("slug", cat.slug);
+  if(error){ ckToast("삭제 실패: " + error.message); return; }
+  ckCat = null;
+  ckToast("삭제되었습니다");
+  ckLoadCats();
+}
+
+/* ---------- 그룹 셀렉트 채우기 (＋ 새 그룹 옵션 포함) ---------- */
+function ckFillGroupSelect(){
+  const sel = $id("ck-in-grp");
+  const groups = ckCat.groups || ["기본"];
+  sel.innerHTML =
+    groups.map((g,i)=>`<option value="${i}">${esc(g)}</option>`).join("") +
+    `<option value="__new">＋ 새 그룹 만들기…</option>`;
+  sel.onchange = async ()=>{
+    if(sel.value !== "__new") return;
+    const gName = prompt("새 그룹 이름 (예: 🏖️ 비치용)");
+    if(!gName || !gName.trim()){ sel.value = "0"; return; }
+    const newGroups = [...groups, gName.trim()];
+    const { error } = await sb.from("checklist_categories")
+      .update({ groups: newGroups }).eq("slug", ckCat.slug);
+    if(error){ ckToast("그룹 추가 실패: " + error.message); sel.value = "0"; return; }
+    ckCat.groups = newGroups;
+    ckFillGroupSelect();
+    sel.value = String(newGroups.length - 1);
+    ckToast("그룹이 추가되었습니다 ✓");
+  };
+}
+
+/* ---------- 항목 로드 (의약품만 최초 시드) ---------- */
 async function ckLoad(){
   let { data, error } = await sb.from("checklist_items")
-    .select("*").eq("category", ckCat)
+    .select("*").eq("category", ckCat.slug)
     .order("grp_idx").order("sort").order("created_at");
-
   if(error){ ckToast("불러오기 실패: " + error.message); console.error(error); return; }
 
-  if(data.length === 0){
+  if(data.length === 0 && ckCat.slug === "medicine"){
     const rows = CK_SEED.map((s,i)=>({
-      category: ckCat, grp_idx: s.g, name: s.n, note: s.t, sort: i
+      category:"medicine", grp_idx:s.g, name:s.n, note:s.t, sort:i
     }));
     const { error: e2 } = await sb.from("checklist_items").insert(rows);
-    if(e2){ ckToast("초기 데이터 생성 실패: " + e2.message); console.error(e2); return; }
+    if(e2){ ckToast("초기 데이터 생성 실패: " + e2.message); return; }
     return ckLoad();
   }
   ckRender(data);
 }
 
-/* ---------- 렌더 ---------- */
+/* ---------- 항목 렌더 ---------- */
 function ckRender(items){
   const wrap = $id("ck-list");
   wrap.innerHTML = "";
-  const groups = CK_GROUPS[ckCat];
+  const groups = ckCat.groups || ["기본"];
 
   const prepared = items.filter(i=>i.prepared).length;
   const packed   = items.filter(i=>i.packed).length;
   $id("ck-status").innerHTML =
-    `전체 <b>${items.length}</b>개 · 준비 <b>${prepared}</b> · 패킹 <b>${packed}</b>`;
+    `${esc(ckCat.icon)} ${esc(ckCat.name)} — 전체 <b>${items.length}</b>개 · 준비 <b>${prepared}</b> · 패킹 <b>${packed}</b>`;
+
+  if(items.length === 0){
+    wrap.innerHTML = `<div class="ck-empty">아직 항목이 없어요. 아래에서 첫 항목을 추가해보세요 👇</div>`;
+    return;
+  }
 
   groups.forEach((gName, gi)=>{
     const gItems = items.filter(i=>i.grp_idx === gi);
     if(gItems.length === 0) return;
-
     const gDiv = document.createElement("div");
     gDiv.className = "ck-group";
-    gDiv.innerHTML = `<h4>${gName}</h4>`;
-
-    gItems.forEach(item=>{
-      const row = document.createElement("div");
-      row.className = "ck-item" + (item.prepared && item.packed ? " done" : "");
-      row.innerHTML = `
-        <span class="nm">${esc(item.name)}</span>
-        <label class="ckbox ${item.prepared?"checked":""}" data-f="prepared">
-          <input type="checkbox" ${item.prepared?"checked":""}><span class="bx"></span>준비
-        </label>
-        <label class="ckbox pk ${item.packed?"checked":""}" data-f="packed">
-          <input type="checkbox" ${item.packed?"checked":""}><span class="bx"></span>패킹
-        </label>
-        <button class="ck-del" title="삭제">✕</button>
-        ${item.note ? `<span class="nt">${esc(item.note)}</span>` : ""}
-      `;
-
-      // 체크 토글
-      row.querySelectorAll(".ckbox").forEach(lb=>{
-        lb.addEventListener("change", async ()=>{
-          const field = lb.dataset.f;
-          const val = lb.querySelector("input").checked;
-          lb.classList.toggle("checked", val);
-          const other = field==="prepared" ? item.packed : item.prepared;
-          row.classList.toggle("done", val && other);
-          const { error } = await sb.from("checklist_items")
-            .update({ [field]: val }).eq("id", item.id);
-          if(error){
-            ckToast("저장 실패 — 다시 시도해주세요");
-            lb.querySelector("input").checked = !val;
-            lb.classList.toggle("checked", !val);
-          } else {
-            item[field] = val;
-          }
-        });
-      });
-
-      // 삭제
-      row.querySelector(".ck-del").addEventListener("click", async ()=>{
-        if(!confirm(`"${item.name}" 항목을 삭제할까요?`)) return;
-        const { error } = await sb.from("checklist_items").delete().eq("id", item.id);
-        if(error){ ckToast("삭제 실패: " + error.message); return; }
-        ckLoad();
-      });
-
-      gDiv.appendChild(row);
-    });
+    // 그룹이 1개뿐이면 제목 생략해 깔끔하게
+    if(groups.length > 1) gDiv.innerHTML = `<h4>${esc(gName)}</h4>`;
+    gItems.forEach(item=>gDiv.appendChild(ckRow(item)));
     wrap.appendChild(gDiv);
   });
+
+  // 그룹 범위를 벗어난 항목(그룹 삭제 등) 안전망
+  const orphan = items.filter(i => i.grp_idx >= groups.length);
+  if(orphan.length){
+    const gDiv = document.createElement("div");
+    gDiv.className = "ck-group";
+    gDiv.innerHTML = `<h4>기타</h4>`;
+    orphan.forEach(item=>gDiv.appendChild(ckRow(item)));
+    wrap.appendChild(gDiv);
+  }
+}
+
+function ckRow(item){
+  const row = document.createElement("div");
+  row.className = "ck-item" + (item.prepared && item.packed ? " done" : "");
+  row.innerHTML = `
+    <span class="nm">${esc(item.name)}</span>
+    <label class="ckbox ${item.prepared?"checked":""}" data-f="prepared">
+      <input type="checkbox" ${item.prepared?"checked":""}><span class="bx"></span>준비
+    </label>
+    <label class="ckbox pk ${item.packed?"checked":""}" data-f="packed">
+      <input type="checkbox" ${item.packed?"checked":""}><span class="bx"></span>패킹
+    </label>
+    <button class="ck-del" title="삭제">✕</button>
+    ${item.note ? `<span class="nt">${esc(item.note)}</span>` : ""}
+  `;
+
+  row.querySelectorAll(".ckbox").forEach(lb=>{
+    lb.addEventListener("change", async ()=>{
+      const field = lb.dataset.f;
+      const val = lb.querySelector("input").checked;
+      lb.classList.toggle("checked", val);
+      const other = field==="prepared" ? item.packed : item.prepared;
+      row.classList.toggle("done", val && other);
+      const { error } = await sb.from("checklist_items")
+        .update({ [field]: val }).eq("id", item.id);
+      if(error){
+        ckToast("저장 실패 — 다시 시도해주세요");
+        lb.querySelector("input").checked = !val;
+        lb.classList.toggle("checked", !val);
+      } else {
+        item[field] = val;
+      }
+    });
+  });
+
+  row.querySelector(".ck-del").addEventListener("click", async ()=>{
+    if(!confirm(`"${item.name}" 항목을 삭제할까요?`)) return;
+    const { error } = await sb.from("checklist_items").delete().eq("id", item.id);
+    if(error){ ckToast("삭제 실패: " + error.message); return; }
+    ckLoad();
+  });
+
+  return row;
 }
 
 /* ---------- 항목 추가 ---------- */
 $id("ck-in-btn").addEventListener("click", async ()=>{
   const name = $id("ck-in-name").value.trim();
   const note = $id("ck-in-note").value.trim();
-  const grp  = parseInt($id("ck-in-grp").value, 10);
+  const grpVal = $id("ck-in-grp").value;
+  if(grpVal === "__new"){ ckToast("그룹을 먼저 선택해주세요"); return; }
+  const grp = parseInt(grpVal, 10) || 0;
   if(!name){ ckToast("항목 이름을 입력해주세요"); return; }
 
   $id("ck-in-btn").disabled = true;
   const { error } = await sb.from("checklist_items").insert({
-    category: ckCat, grp_idx: grp, name, note, sort: 999
+    category: ckCat.slug, grp_idx: grp, name, note, sort: 999
   });
   $id("ck-in-btn").disabled = false;
 
