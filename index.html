@@ -59,23 +59,31 @@
         };
 
         // 로그인 함수
-        async function signIn() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+        // 기존 signIn() 함수를 아래 코드로 완전히 교체해 보세요.
+async function signIn() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-            if(!email || !password) {
-                alert("이메일과 비밀번호를 입력해주세요.");
-                return;
-            }
+    if(!email || !password) {
+        alert("이메일과 비밀번호를 입력해주세요.");
+        return;
+    }
 
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            
-            if (error) {
-                alert("로그인 실패: " + error.message);
-            } else {
-                showMenu(data.user.email);
-            }
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+            // 이메일 미인증 시 보통 "Email not confirmed" 에러 알림이 뜹니다.
+            alert("Supabase 에러 발생: " + error.message); 
+        } else {
+            showMenu(data.user.email);
         }
+    } catch (unexpectedError) {
+        // 주소나 Key가 잘못되어 인터넷 연결 자체가 실패한 경우 여기로 들어옵니다.
+        alert("시스템 에러(주소/Key 오류 가능성): " + unexpectedError.message);
+    }
+}
+
 
         // 로그아웃 함수
         async function signOut() {
