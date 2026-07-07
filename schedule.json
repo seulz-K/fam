@@ -1,0 +1,124 @@
+{
+  "events": [
+    {
+      "id": "e2",
+      "title": "영어(제이미)",
+      "person": "윤슬",
+      "day": 0,
+      "start": 1110,
+      "duration": 60
+    },
+    {
+      "id": "e6",
+      "title": "학교 픽업",
+      "person": "엄마",
+      "day": 4,
+      "start": 870,
+      "duration": 30
+    },
+    {
+      "id": "e1781622609124",
+      "title": "영어(제이미)",
+      "person": "윤슬",
+      "day": 3,
+      "start": 1020,
+      "duration": 90
+    },
+    {
+      "id": "e1781622629464",
+      "title": "하연과학",
+      "person": "윤슬",
+      "day": 0,
+      "start": 960,
+      "duration": 60
+    },
+    {
+      "id": "e1781622644311",
+      "title": "C&A",
+      "person": "윤슬",
+      "day": 1,
+      "start": 930,
+      "duration": 180
+    },
+    {
+      "id": "e1781622681811",
+      "title": "황소수학",
+      "person": "윤슬",
+      "day": 2,
+      "start": 930,
+      "duration": 330
+    },
+    {
+      "id": "e1781622826534",
+      "title": "황소수학",
+      "person": "윤슬",
+      "day": 4,
+      "start": 960,
+      "duration": 300
+    },
+    {
+      "id": "e1781622901457",
+      "title": "황소수학",
+      "person": "찬슬",
+      "day": 0,
+      "start": 915,
+      "duration": 235
+    },
+    {
+      "id": "e1781622922818",
+      "title": "황소수학",
+      "person": "찬슬",
+      "day": 2,
+      "start": 915,
+      "duration": 355
+    },
+    {
+      "id": "e1781622936198",
+      "title": "하연과학",
+      "person": "찬슬",
+      "day": 1,
+      "start": 870,
+      "duration": 60
+    },
+    {
+      "id": "e1781622952203",
+      "title": "영어(제이미)",
+      "person": "찬슬",
+      "day": 1,
+      "start": 1140,
+      "duration": 60
+    },
+    {
+      "id": "e1781622965182",
+      "title": "영어(제이미)",
+      "person": "찬슬",
+      "day": 3,
+      "start": 1140,
+      "duration": 60
+    },
+    {
+      "id": "e1781622976953",
+      "title": "C&A",
+      "person": "찬슬",
+      "day": 4,
+      "start": 930,
+      "duration": 120
+    },
+    {
+      "id": "e1781622994577",
+      "title": "바이올린",
+      "person": "찬슬",
+      "day": 3,
+      "start": 900,
+      "duration": 60
+    }
+  ],
+  "personColors": {
+    "엄마": "#E76F51",
+    "첫째": "#2A9D8F",
+    "둘째": "#E9C46A",
+    "윤슬": "#E9C46A",
+    "찬슬": "#2A9D8F"
+  },
+  "hiddenPersons": []
+}
