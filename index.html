@@ -1,69 +1,103 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>우리집 일정 및 자산 관리</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가족 통합 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f6f9; }
+        .container { max-width: 500px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        .menu-list { list-style: none; padding: 0; }
+        .menu-list li { margin: 15px 0; }
+        .menu-list a { display: block; padding: 15px; background: #e9ecef; color: #333; text-decoration: none; border-radius: 4px; text-align: center; font-weight: bold; transition: 0.2s; }
+        .menu-list a:hover { background: #007bff; color: white; }
+        .logout-btn { background-color: #dc3545; margin-top: 20px; }
+        .logout-btn:hover { background-color: #bd2130; }
+    </style>
 </head>
 <body>
 
-<div id="login-section">
-<h2>로그인</h2>
-<input type="email" id="email" placeholder="이메일">
-<input type="password" id="password" placeholder="비밀번호">
-<button onclick="signIn()">로그인</button>
-</div>
+    <div class="container">
+        <div id="login-section">
+            <h2>가족 서비스 로그인</h2>
+            <input type="email" id="email" placeholder="이메일 주소">
+            <input type="password" id="password" placeholder="비밀번호">
+            <button onclick="signIn()">로그인</button>
+        </div>
 
-<div id="content-section" style="display:none;">
-<h2>가족 일정표</h2>
-<ul id="schedule-list"></ul>
+        <div id="menu-section" style="display: none;">
+            <h2>🏠 메인 메뉴</h2>
+            <p id="welcome-msg" style="text-align: center; color: #666;"></p>
+            
+            <ul class="menu-list">
+                <li><a href="academy.html">📅 학원 schedule</a></li>
+                <li><a href="account.html">💰 account (자산흐름)</a></li>
+                <li><a href="travel.html">✈️ 여행일정</a></li>
+            </ul>
 
-<input type="text" id="new-schedule" placeholder="새 일정 입력">
-<button onclick="addSchedule()">추정 추가</button>
-<button onclick="signOut()">로그아웃</button>
-</div>
+            <button class="logout-btn" onclick="signOut()">로그아웃</button>
+        </div>
+    </div>
 
-<script>
-// 2. Supabase 초기화 (1단계에서 복사한 값 넣기)
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <script>
+        // 본인의 Supabase 정보로 꼭 변경해주세요!
+        const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 3. 로그인 함수
-async function signIn() {
-const email = document.getElementById('email').value;
-const password = document.getElementById('password').value;
+        // 페이지가 로드될 때 로그인 상태를 자동으로 체크합니다.
+        window.onload = async function() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                showMenu(session.user.email);
+            }
+        };
 
-const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-if (error) alert("로그인 실패: " + error.message);
-else {
-alert("로그인 성공!");
-initApp();
-}
-}
+        // 로그인 함수
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-// 4. 로그인 성공 후 화면 전환 및 데이터 가져오기
-function initApp() {
-document.getElementById('login-section').style.display = 'none';
-document.getElementById('content-section').style.display = 'block';
-fetchSchedules();
-}
+            if(!email || !password) {
+                alert("이메일과 비밀번호를 입력해주세요.");
+                return;
+            }
 
-// 5. DB에서 일정 가져오기 (Sync)
-async function fetchSchedules() {
-const { data, error } = await supabase.from('schedules').select('*');
-if (data) {
-const list = document.getElementById('schedule-list');
-list.innerHTML = data.map(item => <li&gt;${item.title}&lt;/li>).join('');
-}
-}
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            
+            if (error) {
+                alert("로그인 실패: " + error.message);
+            } else {
+                showMenu(data.user.email);
+            }
+        }
 
-// 6. DB에 새 일정 추가하기
-async function addSchedule() {
-const title = document.getElementById('new-schedule').value;
-await supabase.from('schedules').insert([{ title: title }]);
-fetchSchedules(); // 목록 새로고침
-}
-</script>
+        // 로그아웃 함수
+        async function signOut() {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                alert("로그아웃 실패: " + error.message);
+            } else {
+                alert("로그아웃 되었습니다.");
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('menu-section').style.display = 'none';
+                // 입력창 초기화
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
+            }
+        }
+
+        // 로그인 성공 시 화면을 메뉴 화면으로 전환하는 함수
+        function showMenu(email) {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('menu-section').style.display = 'block';
+            document.getElementById('welcome-msg').innerText = `${email}님 환영합니다.`;
+        }
+    </script>
 </body>
 </html>
