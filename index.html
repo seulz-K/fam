@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>우리집 일정 및 자산 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="login-section">
+<h2>로그인</h2>
+<input type="email" id="email" placeholder="이메일">
+<input type="password" id="password" placeholder="비밀번호">
+<button onclick="signIn()">로그인</button>
+</div>
+
+<div id="content-section" style="display:none;">
+<h2>가족 일정표</h2>
+<ul id="schedule-list"></ul>
+
+<input type="text" id="new-schedule" placeholder="새 일정 입력">
+<button onclick="addSchedule()">추정 추가</button>
+<button onclick="signOut()">로그아웃</button>
+</div>
+
+<script>
+// 2. Supabase 초기화 (1단계에서 복사한 값 넣기)
+const SUPABASE_URL = "https://your-project-url.supabase.co";
+const SUPABASE_KEY = "your-anon-public-key";
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 3. 로그인 함수
+async function signIn() {
+const email = document.getElementById('email').value;
+const password = document.getElementById('password').value;
+
+const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+if (error) alert("로그인 실패: " + error.message);
+else {
+alert("로그인 성공!");
+initApp();
+}
+}
+
+// 4. 로그인 성공 후 화면 전환 및 데이터 가져오기
+function initApp() {
+document.getElementById('login-section').style.display = 'none';
+document.getElementById('content-section').style.display = 'block';
+fetchSchedules();
+}
+
+// 5. DB에서 일정 가져오기 (Sync)
+async function fetchSchedules() {
+const { data, error } = await supabase.from('schedules').select('*');
+if (data) {
+const list = document.getElementById('schedule-list');
+list.innerHTML = data.map(item => <li&gt;${item.title}&lt;/li>).join('');
+}
+}
+
+// 6. DB에 새 일정 추가하기
+async function addSchedule() {
+const title = document.getElementById('new-schedule').value;
+await supabase.from('schedules').insert([{ title: title }]);
+fetchSchedules(); // 목록 새로고침
+}
+</script>
+</body>
+</html>
