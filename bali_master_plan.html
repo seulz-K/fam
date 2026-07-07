@@ -396,6 +396,84 @@
   .bagflow .ok{color:#4C7A44;font-weight:600;}
   .bagflow .arrow{color:#B9AF99;}
 
+  /* ───────── CHECKLIST ───────── */
+  .ctabs{display:flex;gap:8px;margin:18px 0 20px;flex-wrap:wrap;}
+  .ctab{
+    font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+    padding:7px 16px;border:1px solid var(--line);border-radius:999px;
+    background:#fff;color:var(--sub);cursor:pointer;transition:all .15s;
+  }
+  .ctab.on{background:var(--sea);border-color:var(--sea);color:#fff;font-weight:600;}
+  .ck-status{
+    font-family:var(--mono);font-size:11.5px;color:var(--sub);
+    margin:0 0 14px;letter-spacing:.04em;
+  }
+  .ck-status b{color:var(--sea);}
+  .ck-login{
+    border-left:3px solid var(--coral);background:#F9ECE7;
+    border-radius:0 8px 8px 0;padding:14px 16px;font-size:13.5px;margin:14px 0;
+  }
+  .ck-group{margin:26px 0 8px;}
+  .ck-group h4{margin:0 0 10px;}
+  .ck-item{
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;margin-bottom:9px;
+    display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;
+  }
+  .ck-item.done{background:#F4F6F1;border-color:#D8DECB;}
+  .ck-item .nm{flex:1;min-width:160px;font-size:14px;font-weight:650;}
+  .ck-item.done .nm{color:#8A8672;text-decoration:line-through;text-decoration-color:#B9B49C;}
+  .ck-item .nt{flex-basis:100%;order:5;font-size:12.5px;color:var(--sub);line-height:1.55;margin-top:2px;}
+  .ckbox{
+    display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    font-family:var(--mono);font-size:11px;letter-spacing:.05em;
+    padding:5px 11px;border-radius:6px;border:1.5px solid var(--line);
+    color:var(--sub);background:#fff;user-select:none;transition:all .12s;white-space:nowrap;
+  }
+  .ckbox input{display:none;}
+  .ckbox .bx{
+    width:14px;height:14px;border:1.5px solid #C9BFA9;border-radius:4px;
+    display:inline-block;position:relative;background:#fff;flex:none;
+  }
+  .ckbox.checked{border-color:var(--sea);color:var(--sea);background:#E7F0EE;font-weight:700;}
+  .ckbox.checked .bx{background:var(--sea);border-color:var(--sea);}
+  .ckbox.checked .bx::after{
+    content:'✓';position:absolute;inset:0;color:#fff;font-size:11px;
+    line-height:14px;text-align:center;
+  }
+  .ckbox.pk.checked{border-color:var(--gold);color:#8A651E;background:#F3E8D4;}
+  .ckbox.pk.checked .bx{background:var(--gold);border-color:var(--gold);}
+  .ck-del{
+    border:none;background:none;color:#C9BFA9;font-size:15px;cursor:pointer;
+    padding:2px 6px;border-radius:6px;transition:all .12s;
+  }
+  .ck-del:hover{color:var(--coral);background:#F9ECE7;}
+  .ck-add{
+    background:var(--mist);border:1px dashed #C9BFA9;border-radius:10px;
+    padding:14px 16px;margin-top:22px;
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  }
+  .ck-add input[type=text],.ck-add select{
+    font-family:inherit;font-size:13.5px;padding:9px 12px;
+    border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--volcanic);
+  }
+  .ck-add .in-name{flex:1;min-width:150px;}
+  .ck-add .in-note{flex:2;min-width:180px;}
+  .ck-add button{
+    font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.08em;
+    padding:9px 18px;border:none;border-radius:8px;
+    background:var(--sea);color:#fff;cursor:pointer;transition:background .15s;
+  }
+  .ck-add button:hover{background:var(--sea-deep);}
+  .ck-add button:disabled{opacity:.5;cursor:not-allowed;}
+  .ck-toast{
+    position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    background:var(--sea-deep);color:#EDE8D8;font-size:13px;
+    padding:10px 20px;border-radius:8px;opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:99;
+  }
+  .ck-toast.show{opacity:1;}
+
   footer{
     max-width:960px;margin:80px auto 0;
     padding:26px 20px 60px;
@@ -454,6 +532,7 @@
   <div class="rail">
     <a class="chip hd" href="#prep">준비</a>
     <a class="chip hd" href="#bags">짐</a>
+    <a class="chip hd" href="#checklist">체크리스트</a>
     <a class="chip" href="#d1">D1 방콕</a>
     <a class="chip" href="#d2">D2 창이</a>
     <a class="chip" href="#d3">D3 길리IN</a>
@@ -799,6 +878,32 @@
   </div>
 </section>
 
+<!-- ═══════════ CHECKLIST ═══════════ -->
+<section class="block" id="checklist">
+  <div class="block-title"><span class="tag">Packing Checklist</span><h2>체크리스트</h2></div>
+  <p class="block-lede"><b>준비</b>(구매·확보 완료)와 <b>패킹</b>(캐리어에 넣음) 두 단계로 체크합니다. 체크 상태는 DB에 저장되어 가족 누구 폰에서 봐도 동일하게 유지됩니다.</p>
+
+  <div class="ctabs" id="ck-tabs">
+    <button class="ctab on" data-cat="medicine">💊 의약품</button>
+  </div>
+
+  <div id="ck-login" class="ck-login" style="display:none">
+    <b>로그인이 필요해요.</b> 체크리스트는 가족 계정 전용입니다. <a href="index.html" style="color:var(--coral);font-weight:700">로그인 페이지로 →</a>
+  </div>
+
+  <p class="ck-status" id="ck-status" style="display:none"></p>
+  <div id="ck-list"></div>
+
+  <div class="ck-add" id="ck-add" style="display:none">
+    <select id="ck-in-grp"></select>
+    <input type="text" class="in-name" id="ck-in-name" placeholder="항목 이름 (예: 밴드에이드)" maxlength="60">
+    <input type="text" class="in-note" id="ck-in-note" placeholder="메모 (선택)" maxlength="200">
+    <button id="ck-in-btn">+ 추가</button>
+  </div>
+</section>
+
+<div class="ck-toast" id="ck-toast"></div>
+
 <!-- ═══════════ LINKS ═══════════ -->
 <section class="block" id="links">
   <div class="block-title"><span class="tag">Bookmarks</span><h2>예약·리뷰 링크 모음</h2></div>
@@ -827,5 +932,182 @@
   보트 시간표·요금·라운지 운영·공연 스케줄은 성수기 중 수시로 바뀝니다. 출발 2주 전 각 공식 채널 기준으로 최종 확인을 권장합니다. — 2026.7 작성
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =========================================================
+   Supabase 설정 — index.html / main.html과 동일한 값으로 교체
+   ========================================================= */
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------- 카테고리/그룹 정의 (탭 추가 시 여기만 확장) ---------- */
+const CK_GROUPS = {
+  medicine: ["🇰🇷 한국에서 미리 챙기기", "🏥 병원 처방 (출국 전)", "🇮🇩 현지에서 구매", "🍚 함께 챙기면 좋은 것"]
+};
+let ckCat = "medicine";
+
+/* ---------- 최초 1회 자동 시드 데이터 (DB가 비어있을 때만) ---------- */
+const CK_SEED = [
+  { g:0, n:"모비콜 (변비약)", t:"현지 약국에 없는 경우 많음 — 미리 구매 필수" },
+  { g:0, n:"타이레놀 (아세트아미노펜)", t:"해열제" },
+  { g:0, n:"이부프로펜", t:"소염제 — 음식과 함께 복용" },
+  { g:0, n:"지사제", t:"발리벨리(배탈)일 땐 함부로 먹지 말 것 — 균 배출을 막아 악화 위험" },
+  { g:0, n:"멀미약", t:"스피드보트·스노클링/스쿠버 일정 있으면 필수" },
+  { g:0, n:"후시딘 등 항생제 연고", t:"상처 감염 방지" },
+  { g:0, n:"방수밴드", t:"현지에도 있지만 비쌈" },
+  { g:0, n:"알콜스왑", t:"상처 소독 + 핸드폰/신발 냄새 제거용으로도 활용" },
+  { g:0, n:"개별포장 생리식염수 (10~20ml)", t:"상처 세척용" },
+  { g:0, n:"빨간 소독약 (개별포장)", t:"스노클링 등으로 산호에 긁혔을 때" },
+  { g:0, n:"면봉 (개별포장)", t:"멸균 상태로 약 바를 때 위생적" },
+  { g:0, n:"모기 기피제", t:"말라리아/뎅기열 예방 필수 — 다 쓰면 현지서 저렴하게 재구매 가능" },
+  { g:0, n:"버물리/물린디 (벌레 물린 데 바르는 약)", t:"모기 물림 진정" },
+  { g:1, n:"항생제 (메트로니다졸·아목시실린 등)", t:"발리벨리 대비 — 의사 상담 후 처방" },
+  { g:1, n:"파상풍 주사", t:"10년에 1회 — 항체 여부는 피검사로 확인 가능, 미리 접종 권장" },
+  { g:2, n:"하이드랄라이트 / 파롤릿 (ORS 전해질)", t:"발리 약국 흔함, 1포 200원 수준 — 탈수 시 포카리보다 적합" },
+  { g:2, n:"모기 기피제 리필", t:"현지 구매가 저렴" },
+  { g:3, n:"인스턴트 죽 (전자레인지용)", t:"발리벨리 걸렸을 때 대비" },
+  { g:3, n:"여행자보험", t:"출국 전 가입 확인" }
+];
+
+/* ---------- DOM 헬퍼 ---------- */
+const $id = s => document.getElementById(s);
+let ckToastTimer;
+function ckToast(msg){
+  const t = $id("ck-toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(ckToastTimer);
+  ckToastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+function esc(s){ const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+/* ---------- 초기화 ---------- */
+async function ckInit(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){
+    $id("ck-login").style.display = "block";
+    return;
+  }
+  $id("ck-status").style.display = "block";
+  $id("ck-add").style.display = "flex";
+
+  // 그룹 셀렉트 채우기
+  const sel = $id("ck-in-grp");
+  sel.innerHTML = CK_GROUPS[ckCat].map((g,i)=>`<option value="${i}">${g}</option>`).join("");
+
+  await ckLoad();
+}
+
+/* ---------- 목록 로드 (비어있으면 시드 삽입) ---------- */
+async function ckLoad(){
+  let { data, error } = await sb.from("checklist_items")
+    .select("*").eq("category", ckCat)
+    .order("grp_idx").order("sort").order("created_at");
+
+  if(error){ ckToast("불러오기 실패: " + error.message); console.error(error); return; }
+
+  if(data.length === 0){
+    const rows = CK_SEED.map((s,i)=>({
+      category: ckCat, grp_idx: s.g, name: s.n, note: s.t, sort: i
+    }));
+    const { error: e2 } = await sb.from("checklist_items").insert(rows);
+    if(e2){ ckToast("초기 데이터 생성 실패: " + e2.message); console.error(e2); return; }
+    return ckLoad();
+  }
+  ckRender(data);
+}
+
+/* ---------- 렌더 ---------- */
+function ckRender(items){
+  const wrap = $id("ck-list");
+  wrap.innerHTML = "";
+  const groups = CK_GROUPS[ckCat];
+
+  const prepared = items.filter(i=>i.prepared).length;
+  const packed   = items.filter(i=>i.packed).length;
+  $id("ck-status").innerHTML =
+    `전체 <b>${items.length}</b>개 · 준비 <b>${prepared}</b> · 패킹 <b>${packed}</b>`;
+
+  groups.forEach((gName, gi)=>{
+    const gItems = items.filter(i=>i.grp_idx === gi);
+    if(gItems.length === 0) return;
+
+    const gDiv = document.createElement("div");
+    gDiv.className = "ck-group";
+    gDiv.innerHTML = `<h4>${gName}</h4>`;
+
+    gItems.forEach(item=>{
+      const row = document.createElement("div");
+      row.className = "ck-item" + (item.prepared && item.packed ? " done" : "");
+      row.innerHTML = `
+        <span class="nm">${esc(item.name)}</span>
+        <label class="ckbox ${item.prepared?"checked":""}" data-f="prepared">
+          <input type="checkbox" ${item.prepared?"checked":""}><span class="bx"></span>준비
+        </label>
+        <label class="ckbox pk ${item.packed?"checked":""}" data-f="packed">
+          <input type="checkbox" ${item.packed?"checked":""}><span class="bx"></span>패킹
+        </label>
+        <button class="ck-del" title="삭제">✕</button>
+        ${item.note ? `<span class="nt">${esc(item.note)}</span>` : ""}
+      `;
+
+      // 체크 토글
+      row.querySelectorAll(".ckbox").forEach(lb=>{
+        lb.addEventListener("change", async ()=>{
+          const field = lb.dataset.f;
+          const val = lb.querySelector("input").checked;
+          lb.classList.toggle("checked", val);
+          const other = field==="prepared" ? item.packed : item.prepared;
+          row.classList.toggle("done", val && other);
+          const { error } = await sb.from("checklist_items")
+            .update({ [field]: val }).eq("id", item.id);
+          if(error){
+            ckToast("저장 실패 — 다시 시도해주세요");
+            lb.querySelector("input").checked = !val;
+            lb.classList.toggle("checked", !val);
+          } else {
+            item[field] = val;
+          }
+        });
+      });
+
+      // 삭제
+      row.querySelector(".ck-del").addEventListener("click", async ()=>{
+        if(!confirm(`"${item.name}" 항목을 삭제할까요?`)) return;
+        const { error } = await sb.from("checklist_items").delete().eq("id", item.id);
+        if(error){ ckToast("삭제 실패: " + error.message); return; }
+        ckLoad();
+      });
+
+      gDiv.appendChild(row);
+    });
+    wrap.appendChild(gDiv);
+  });
+}
+
+/* ---------- 항목 추가 ---------- */
+$id("ck-in-btn").addEventListener("click", async ()=>{
+  const name = $id("ck-in-name").value.trim();
+  const note = $id("ck-in-note").value.trim();
+  const grp  = parseInt($id("ck-in-grp").value, 10);
+  if(!name){ ckToast("항목 이름을 입력해주세요"); return; }
+
+  $id("ck-in-btn").disabled = true;
+  const { error } = await sb.from("checklist_items").insert({
+    category: ckCat, grp_idx: grp, name, note, sort: 999
+  });
+  $id("ck-in-btn").disabled = false;
+
+  if(error){ ckToast("추가 실패: " + error.message); return; }
+  $id("ck-in-name").value = "";
+  $id("ck-in-note").value = "";
+  ckToast("추가되었습니다 ✓");
+  ckLoad();
+});
+$id("ck-in-name").addEventListener("keydown", e=>{ if(e.key==="Enter") $id("ck-in-btn").click(); });
+
+ckInit();
+</script>
 </body>
 </html>
