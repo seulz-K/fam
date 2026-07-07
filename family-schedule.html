@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>우리 가족 주간 시간표</title>
+<style>
+  :root{
+    --bg:#FAF6F0;
+    --paper:#FFFFFF;
+    --ink:#2E2A26;
+    --muted:#9C9388;
+    --line:#EAE3D8;
+    --accent:#E0734A;
+    --today:#FFF1E4;
+    --radius:10px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard Variable",Pretendard,"Malgun Gothic",system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:920px; margin:0 auto; padding:16px 16px 40px;}
+  .toolbar h1{font-size:1.35rem; margin:0 0 4px; letter-spacing:-0.01em;}
+  .toolbar p{font-size:0.83rem; color:var(--muted); margin:0 0 12px; line-height:1.55;}
+  .toolbar-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  #legend{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    --chip-color:#ccc;
+    display:flex; align-items:center; gap:6px;
+    border:1px solid var(--line); background:var(--paper);
+    border-radius:999px; padding:4px 10px 4px 6px; font-size:0.78rem;
+    color:var(--ink);
+    transition:opacity .15s ease;
+  }
+  .chip .dot{
+    width:16px; height:16px; border-radius:50%; background:var(--chip-color); flex:none;
+    border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,0.12); padding:0; cursor:pointer;
+  }
+  .chip .chip-label{
+    background:none; border:none; padding:0; font:inherit; color:inherit; cursor:pointer;
+  }
+  .chip.off{opacity:0.38;}
+  .chip.off .dot{filter:grayscale(1);}
+  .color-popover{
+    position:absolute; z-index:60; background:var(--paper); border:1px solid var(--line);
+    border-radius:12px; padding:12px; box-shadow:0 8px 24px rgba(0,0,0,0.18); width:200px;
+  }
+  .swatch-row{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px;}
+  .swatch{
+    width:26px; height:26px; border-radius:50%; border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.15); cursor:pointer; padding:0;
+  }
+  .swatch.selected{box-shadow:0 0 0 2px var(--ink);}
+  .custom-row{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:0.78rem; color:var(--muted); border-top:1px solid var(--line); padding-top:10px;
+  }
+  .custom-row input[type=color]{
+    width:34px; height:26px; border:1px solid var(--line); border-radius:6px; padding:1px; cursor:pointer;
+  }
+  .btns{display:flex; gap:8px;}
+  #addBtn{
+    background:var(--accent); color:#fff; border:none; border-radius:999px;
+    padding:9px 18px; font-size:0.85rem; font-weight:700; cursor:pointer;
+    box-shadow:0 2px 6px rgba(224,115,74,0.35);
+  }
+  #resetBtn{
+    background:var(--paper); color:var(--muted); border:1px solid var(--line);
+    border-radius:999px; padding:9px 14px; font-size:0.78rem; cursor:pointer;
+  }
+  #exportBtn, #importBtn{
+    background:var(--paper); color:var(--ink); border:1px solid var(--line);
+    border-radius:999px; padding:9px 14px; font-size:0.78rem; cursor:pointer;
+  }
+  #githubBtn{
+    background:#24292e; color:#fff; border:none;
+    border-radius:999px; padding:9px 14px; font-size:0.78rem; cursor:pointer;
+    font-weight:600;
+  }
+  .grid-wrapper{
+    display:flex; border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; background:var(--paper);
+  }
+  .time-col{flex:none; width:40px; border-right:1px solid var(--line);}
+  .time-col-spacer{height:40px; border-bottom:1px solid var(--line);}
+  .time-labels{position:relative;}
+  .time-label{
+    position:absolute; right:5px; font-size:0.66rem; color:var(--muted);
+    transform:translateY(-50%); white-space:nowrap;
+  }
+  #gridScroll{flex:1; overflow-x:auto;}
+  #dayHeaders{display:flex; height:40px; border-bottom:1px solid var(--line);}
+  .day-header{
+    flex:none; display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem; font-weight:700; border-right:1px solid var(--line);
+    color:var(--muted);
+  }
+  .day-header.weekend{color:var(--accent);}
+  .day-header.today{background:var(--today); color:var(--ink);}
+  #gridBody{position:relative; cursor:copy;}
+  #loadingMsg{padding:60px 16px; text-align:center; color:var(--muted); font-size:0.85rem;}
+  .event{
+    position:absolute; border-radius:8px; padding:5px 7px;
+    font-size:0.72rem; line-height:1.3; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+    cursor:pointer; overflow:hidden; user-select:none; touch-action:none;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .event.pressing{transform:scale(1.04); box-shadow:0 3px 8px rgba(0,0,0,0.22);}
+  .event.dragging{
+    cursor:grabbing; box-shadow:0 8px 16px rgba(0,0,0,0.30); z-index:20 !important;
+    opacity:0.97 !important; transform:scale(1.04); transition:none;
+  }
+  .ev-title{font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ev-meta{font-size:0.64rem; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+
+  .modal{position:fixed; inset:0; background:rgba(40,30,20,0.4); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;}
+  .modal.open{display:flex;}
+  .modal-content{background:var(--paper); border-radius:14px; padding:22px; width:100%; max-width:360px;}
+  .modal-content h2{margin:0 0 14px; font-size:1.1rem;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:0.76rem; color:var(--muted); margin-bottom:4px;}
+  .field input, .field select{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    font-size:0.92rem; font-family:inherit; background:var(--bg); color:var(--ink);
+  }
+  .field-row{display:flex; gap:8px;}
+  .field-row .field{flex:1;}
+  .error{color:#D14343; font-size:0.78rem; min-height:1.2em; margin-bottom:6px;}
+  .modal-actions{display:flex; justify-content:space-between; gap:8px; margin-top:6px;}
+  .btn{padding:10px 16px; border-radius:8px; border:none; font-size:0.85rem; font-weight:700; cursor:pointer;}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-secondary{background:var(--bg); color:var(--ink); border:1px solid var(--line);}
+  .btn-danger{background:#fff; color:#D14343; border:1px solid #F3D2D2;}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .saved-tag{font-size:0.72rem; color:var(--muted); text-align:right; margin-top:8px; min-height:1em;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <h1>🗓️ 우리 가족 주간 시간표</h1>
+    <p>일정을 살짝 탭하면 수정할 수 있어요. 꾹 누른 채로 끌면(롱프레스 드래그) 다른 요일·시간으로 옮길 수 있어요. 빈 칸을 탭하면 새 일정을 추가할 수 있어요.<br><strong id="storageNotice">저장 방식을 확인하는 중...</strong></p>
+    <div class="toolbar-row">
+      <div id="legend"></div>
+      <div class="btns">
+        <button id="exportBtn" type="button">내보내기</button>
+        <button id="importBtn" type="button">가져오기</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none">
+        <button id="githubBtn" type="button">🐙 GitHub</button>
+        <button id="resetBtn" type="button">예시로 초기화</button>
+        <button id="addBtn" type="button">+ 일정 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-wrapper">
+    <div class="time-col">
+      <div class="time-col-spacer"></div>
+      <div class="time-labels" id="timeLabels"></div>
+    </div>
+    <div id="gridScroll">
+      <div id="dayHeaders"></div>
+      <div id="gridBody">
+        <div id="loadingMsg">불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+  <div class="saved-tag" id="savedTag"></div>
+</div>
+
+<div class="modal" id="githubModal">
+  <div class="modal-content">
+    <h2>🐙 GitHub 연동</h2>
+    <p style="font-size:0.8rem;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+      저장소: <strong>seulz-K/fam</strong> → <code>schedule.json</code><br>
+      토큰은 이 세션에서만 메모리에 보관되며 파일에 저장되지 않아요.
+    </p>
+    <div class="field">
+      <label for="gh-token">GitHub Personal Access Token</label>
+      <input id="gh-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    </div>
+    <div id="ghStatus" style="font-size:0.78rem;min-height:1.4em;margin-bottom:10px;color:var(--muted);"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" id="ghUploadBtn">⬆️ GitHub에 올리기</button>
+      <button type="button" class="btn btn-secondary" id="ghDownloadBtn">⬇️ GitHub에서 불러오기</button>
+      <button type="button" class="btn btn-secondary" id="ghCancelBtn" style="margin-left:auto;">닫기</button>
+    </div>
+    <p style="font-size:0.72rem;color:var(--muted);margin:12px 0 0;line-height:1.5;">
+      💡 토큰이 없으면 "불러오기"만 가능해요. 올리기는 토큰 필수.
+    </p>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2 id="modalTitle">일정 추가</h2>
+    <form id="modalForm">
+      <div class="field">
+        <label for="f-title">제목</label>
+        <input id="f-title" type="text" placeholder="예: 필라테스" required>
+      </div>
+      <div class="field">
+        <label for="f-person">담당자</label>
+        <input id="f-person" type="text" placeholder="예: 엄마, 첫째, 둘째" required>
+      </div>
+      <div class="field">
+        <label for="f-day">요일</label>
+        <select id="f-day">
+          <option value="0">월요일</option>
+          <option value="1">화요일</option>
+          <option value="2">수요일</option>
+          <option value="3">목요일</option>
+          <option value="4">금요일</option>
+          <option value="5">토요일</option>
+          <option value="6">일요일</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-start">시작 시간</label>
+          <input id="f-start" type="time" required>
+        </div>
+        <div class="field">
+          <label for="f-end">종료 시간</label>
+          <input id="f-end" type="time" required>
+        </div>
+      </div>
+      <div class="error" id="formError"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="deleteBtn">삭제</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn btn-secondary" id="cancelBtn">취소</button>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---------- constants ----------
+  const DAYS = ['월','화','수','목','금','토','일'];
+  const START_HOUR = 6;
+  const END_HOUR = 23;
+  const PX_PER_HOUR = 48;
+  const TOTAL_HEIGHT = (END_HOUR - START_HOUR) * PX_PER_HOUR;
+  const SNAP_MIN = 15;
+  const PALETTE = [
+    '#E76F51', '#2A9D8F', '#E9C46A', '#577590',
+    '#8AB17D', '#B388EB', '#F4A261', '#5C8A8A',
+    '#D62828', '#3A86FF', '#06A77D', '#FF8FA3',
+    '#6A4C93', '#C9A227', '#4361EE', '#EF476F'
+  ];
+  const DEFAULT_EVENTS = [
+    {id:'e1', title:'필라테스', person:'엄마', day:0, start:9*60+30, duration:60},
+    {id:'e2', title:'영어 수업', person:'첫째', day:1, start:16*60, duration:50},
+    {id:'e3', title:'바이올린', person:'둘째', day:1, start:17*60, duration:40},
+    {id:'e4', title:'한글학교', person:'첫째', day:2, start:15*60+30, duration:90},
+    {id:'e5', title:'농구', person:'둘째', day:3, start:18*60, duration:60},
+    {id:'e6', title:'학교 픽업', person:'엄마', day:4, start:14*60+30, duration:30},
+    {id:'e7', title:'바이올린 레슨', person:'첫째', day:5, start:10*60, duration:60},
+    {id:'e8', title:'한글학교', person:'둘째', day:5, start:13*60, duration:120}
+  ];
+
+  // ---------- state ----------
+  let state = { events:[], personColors:{}, hiddenPersons:[] };
+  let isInteracting = false; // true while dragging or modal is open; pauses remote-sync polling
+  let COL_WIDTH = 90;
+  let lastPerson = '';
+  const jsDay = new Date().getDay();
+  const todayIdx = (jsDay + 6) % 7; // Mon=0..Sun=6
+
+  // ---------- elements ----------
+  const gridBody = document.getElementById('gridBody');
+  const gridScroll = document.getElementById('gridScroll');
+  const dayHeaders = document.getElementById('dayHeaders');
+  const timeLabels = document.getElementById('timeLabels');
+  const legendEl = document.getElementById('legend');
+  const modal = document.getElementById('modal');
+  const modalForm = document.getElementById('modalForm');
+  const savedTag = document.getElementById('savedTag');
+
+  // ---------- helpers ----------
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+  }
+  function timeToY(min){ return (min - START_HOUR*60) / 60 * PX_PER_HOUR; }
+  function yToMin(y){
+    let m = START_HOUR*60 + (y / PX_PER_HOUR * 60);
+    m = Math.round(m / SNAP_MIN) * SNAP_MIN;
+    return m;
+  }
+  function fmtTime(min){
+    min = ((min % 1440) + 1440) % 1440;
+    const h = Math.floor(min/60), m = min%60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  function timeInputToMin(str){
+    const parts = str.split(':');
+    return (parseInt(parts[0],10)||0)*60 + (parseInt(parts[1],10)||0);
+  }
+  // Returns relative luminance-based readable text color for a given bg hex
+  function readableTextColor(hex){
+    const c = hex.replace('#','');
+    const r = parseInt(c.substring(0,2),16)/255;
+    const g = parseInt(c.substring(2,4),16)/255;
+    const b = parseInt(c.substring(4,6),16)/255;
+    const lin = v => v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+    const L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
+    return L > 0.45 ? '#2E2A26' : '#FFFFFF';
+  }
+
+  function colorForPerson(person){
+    let stored = state.personColors[person];
+    // backward compatibility: older saves stored a palette index (number)
+    if(typeof stored === 'number'){
+      stored = PALETTE[stored % PALETTE.length];
+      state.personColors[person] = stored;
+    }
+    if(!stored){
+      const usedCount = Object.keys(state.personColors).length;
+      stored = PALETTE[usedCount % PALETTE.length];
+      state.personColors[person] = stored;
+    }
+    return { bg: stored, fg: readableTextColor(stored) };
+  }
+
+  function setPersonColor(person, hex){
+    state.personColors[person] = hex;
+  }
+
+  // ---------- storage ----------
+  // Two storage backends:
+  //  - window.storage (Claude.ai artifact only): shared=true means every family
+  //    member who opens this artifact link sees/edits the same data.
+  //  - localStorage (works when the file is downloaded and opened directly,
+  //    or any browser): saved only on THIS device/browser, not shared.
+  // We detect which backend is actually usable and use that one automatically.
+  const SHARED = true;
+  const LOCAL_KEY = 'family-schedule-v1';
+  let backend = 'unknown'; // 'cloud' | 'local'
+
+  async function detectBackend(){
+    if(typeof window.storage !== 'undefined' && window.storage && typeof window.storage.get === 'function'){
+      try{
+        await window.storage.get('__backend_probe__', SHARED);
+        return 'cloud';
+      }catch(err){
+        // key not existing throws — that still proves the API works
+        if(err) return 'cloud';
+      }
+    }
+    return 'local';
+  }
+
+  async function loadData(){
+    backend = await detectBackend();
+    try{
+      if(backend === 'cloud'){
+        const res = await window.storage.get(LOCAL_KEY, SHARED);
+        if(res && res.value){
+          applyLoadedJSON(res.value);
+          return;
+        }
+      } else {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if(raw){
+          applyLoadedJSON(raw);
+          return;
+        }
+      }
+    }catch(err){ /* fall through to defaults */ }
+    state.events = DEFAULT_EVENTS.map(e => ({...e}));
+    state.personColors = {};
+    state.hiddenPersons = [];
+  }
+
+  function applyLoadedJSON(raw){
+    const parsed = JSON.parse(raw);
+    state.events = Array.isArray(parsed.events) ? parsed.events : [];
+    state.personColors = parsed.personColors || {};
+    state.hiddenPersons = parsed.hiddenPersons || [];
+  }
+
+  let saveTimer = null;
+  function saveData(){
+    savedTag.textContent = '저장 중...';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try{
+        if(backend === 'cloud'){
+          await window.storage.set(LOCAL_KEY, JSON.stringify(state), SHARED);
+        } else {
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(state));
+        }
+        savedTag.textContent = '저장됨';
+        setTimeout(()=>{ if(savedTag.textContent==='저장됨') savedTag.textContent=''; }, 1200);
+      }catch(err){
+        savedTag.textContent = '저장 실패';
+      }
+    }, 250);
+  }
+
+  function updateStorageNotice(){
+    const el = document.getElementById('storageNotice');
+    if(!el) return;
+    if(backend === 'cloud'){
+      el.textContent = '이 시간표는 공유 시간표예요. 이 링크를 가진 가족 모두가 같은 일정을 보고 수정할 수 있어요.';
+    } else {
+      el.textContent = '지금은 이 기기/브라우저에만 저장돼요. 다른 기기나 가족과 공유하려면 "내보내기"로 파일을 저장해서 보내주고, 받는 사람은 "가져오기"로 열면 돼요.';
+    }
+  }
+
+  // ---------- export / import ----------
+  function exportData(){
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `가족시간표_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importDataFromFile(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const parsed = JSON.parse(reader.result);
+        if(!Array.isArray(parsed.events)) throw new Error('형식이 올바르지 않아요');
+        if(!confirm('현재 시간표를 불러온 파일 내용으로 바꿀까요? (현재 내용은 사라져요)')) return;
+        state.events = parsed.events;
+        state.personColors = parsed.personColors || {};
+        state.hiddenPersons = parsed.hiddenPersons || [];
+        saveData();
+        renderAll();
+      }catch(err){
+        alert('파일을 읽을 수 없어요. 이 화면에서 "내보내기"로 만든 JSON 파일인지 확인해주세요.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+
+  // ---------- github integration ----------
+  const GH_OWNER = 'seulz-K';
+  const GH_REPO  = 'fam';
+  const GH_PATH  = 'schedule.json';
+  const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+
+  let ghToken = ''; // session-only; never persisted to disk or storage
+
+  function setGhStatus(msg, isError){
+    const el = document.getElementById('ghStatus');
+    if(!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? '#D14343' : 'var(--muted)';
+  }
+
+  async function ghGetFileSHA(){
+    // Returns {sha, content} if file exists, or null if 404
+    const res = await fetch(GH_API, {
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    if(res.status === 404) return null;
+    if(!res.ok) throw new Error(`GitHub 오류 ${res.status}`);
+    const data = await res.json();
+    return { sha: data.sha };
+  }
+
+  async function ghUpload(){
+    const token = document.getElementById('gh-token').value.trim() || ghToken;
+    if(!token){ setGhStatus('토큰을 입력해주세요.', true); return; }
+    ghToken = token;
+    setGhStatus('올리는 중...');
+    try{
+      const existing = await ghGetFileSHA();
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
+      const body = {
+        message: `시간표 업데이트 ${new Date().toLocaleString('ko-KR')}`,
+        content,
+        ...(existing ? { sha: existing.sha } : {})
+      };
+      const res = await fetch(GH_API, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok){
+        const err = await res.json();
+        throw new Error(err.message || `오류 ${res.status}`);
+      }
+      setGhStatus('✅ GitHub에 성공적으로 올렸어요!');
+    }catch(e){
+      setGhStatus('❌ 실패: ' + e.message, true);
+    }
+  }
+
+  async function ghDownload(){
+    setGhStatus('불러오는 중...');
+    try{
+      const branch = window._ghBranch || 'main';
+      const raw = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${branch}/${GH_PATH}`;
+      setGhStatus(`불러오는 중... (브랜치: ${branch})`);
+      const res = await fetch(raw + '?t=' + Date.now());
+      if(res.status === 404) throw new Error(`파일 없음 (${branch}/${GH_PATH}). 먼저 올리기를 해주세요.`);
+      if(!res.ok) throw new Error(`HTTP ${res.status} 오류`);
+      const parsed = await res.json();
+      if(!Array.isArray(parsed.events)) throw new Error('파일 형식이 올바르지 않아요.');
+      if(!confirm('GitHub에서 불러온 내용으로 현재 시간표를 바꿀까요?')) return;
+      state.events = parsed.events;
+      state.personColors = parsed.personColors || {};
+      state.hiddenPersons = parsed.hiddenPersons || [];
+      saveData();
+      renderAll();
+      setGhStatus('✅ GitHub에서 성공적으로 불러왔어요!');
+    }catch(e){
+      setGhStatus('❌ 실패: ' + e.message, true);
+    }
+  }
+
+  function openGithubModal(){
+    document.getElementById('gh-token').value = ghToken;
+    setGhStatus('연결 확인 중...');
+    document.getElementById('githubModal').classList.add('open');
+    // test connectivity immediately so user sees what's happening
+    fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}`, {
+      headers: { Accept: 'application/vnd.github+json' }
+    })
+    .then(r => r.json())
+    .then(d => {
+      if(d.id){
+        setGhStatus(`✅ 저장소 연결 확인됨 (브랜치: ${d.default_branch}). 토큰 입력 후 올리기/불러오기 하세요.`);
+        // update raw URL to use actual default branch
+        window._ghBranch = d.default_branch;
+      } else {
+        setGhStatus('⚠️ 저장소 응답이 이상해요: ' + JSON.stringify(d).slice(0,100), true);
+      }
+    })
+    .catch(e => setGhStatus('❌ 저장소 접근 실패: ' + e.message, true));
+  }
+  function closeGithubModal(){
+    document.getElementById('githubModal').classList.remove('open');
+  }
+
+  function computeColWidth(){
+    const available = gridScroll.clientWidth || 700;
+    COL_WIDTH = Math.max(50, Math.floor(available/7));
+  }
+
+  function renderDayHeaders(){
+    dayHeaders.innerHTML = '';
+    dayHeaders.style.width = (COL_WIDTH*7)+'px';
+    DAYS.forEach((d,i)=>{
+      const cell = document.createElement('div');
+      cell.className = 'day-header' + (i===todayIdx ? ' today':'') + (i>=5?' weekend':'');
+      cell.style.width = COL_WIDTH+'px';
+      cell.textContent = d;
+      dayHeaders.appendChild(cell);
+    });
+  }
+
+  function renderTimeLabels(){
+    timeLabels.innerHTML = '';
+    timeLabels.style.height = TOTAL_HEIGHT+'px';
+    for(let h=START_HOUR; h<=END_HOUR; h++){
+      const lbl = document.createElement('div');
+      lbl.className = 'time-label';
+      lbl.style.top = timeToY(h*60)+'px';
+      lbl.textContent = h + '시';
+      timeLabels.appendChild(lbl);
+    }
+  }
+
+  function applyGridBackground(){
+    gridBody.style.width = (COL_WIDTH*7)+'px';
+    gridBody.style.height = TOTAL_HEIGHT+'px';
+    let bg = `repeating-linear-gradient(to bottom, var(--line) 0, var(--line) 1px, transparent 1px, transparent ${PX_PER_HOUR}px),`;
+    bg += `repeating-linear-gradient(to right, var(--line) 0, var(--line) 1px, transparent 1px, transparent ${COL_WIDTH}px)`;
+    gridBody.style.backgroundImage = bg;
+    gridBody.style.backgroundColor = 'var(--paper)';
+    // today highlight strip
+    let highlight = gridBody.querySelector('.today-strip');
+    if(!highlight){
+      highlight = document.createElement('div');
+      highlight.className = 'today-strip';
+      highlight.style.position = 'absolute';
+      highlight.style.top = '0';
+      highlight.style.background = 'var(--today)';
+      highlight.style.zIndex = '0';
+      highlight.style.pointerEvents = 'none';
+      gridBody.insertBefore(highlight, gridBody.firstChild);
+    }
+    highlight.style.left = (todayIdx*COL_WIDTH)+'px';
+    highlight.style.width = COL_WIDTH+'px';
+    highlight.style.height = TOTAL_HEIGHT+'px';
+  }
+
+  // ---------- overlap layout ----------
+  // For each day, group overlapping events into clusters and assign each
+  // event a column index + column count within its cluster, so overlapping
+  // events sit side-by-side instead of fully covering each other.
+  function computeLayout(visibleEvents){
+    const layout = {}; // id -> {col, cols}
+    for(let day=0; day<7; day++){
+      const dayEvents = visibleEvents.filter(e=>e.day===day).sort((a,b)=>a.start-b.start);
+      let cluster = [];
+      let clusterEnd = -Infinity;
+      function flushCluster(){
+        if(cluster.length===0) return;
+        // assign columns greedily within the cluster
+        const colEnds = []; // end time of last event placed in each column
+        cluster.forEach(ev=>{
+          let placed = false;
+          for(let c=0;c<colEnds.length;c++){
+            if(ev.start >= colEnds[c]){
+              layout[ev.id] = {col:c};
+              colEnds[c] = ev.start+ev.duration;
+              placed = true;
+              break;
+            }
+          }
+          if(!placed){
+            layout[ev.id] = {col:colEnds.length};
+            colEnds.push(ev.start+ev.duration);
+          }
+        });
+        const cols = colEnds.length;
+        cluster.forEach(ev=>{ layout[ev.id].cols = cols; });
+        cluster = [];
+      }
+      dayEvents.forEach(ev=>{
+        if(ev.start >= clusterEnd){
+          flushCluster();
+          clusterEnd = ev.start+ev.duration;
+        } else {
+          clusterEnd = Math.max(clusterEnd, ev.start+ev.duration);
+        }
+        cluster.push(ev);
+      });
+      flushCluster();
+    }
+    return layout;
+  }
+
+  // ---------- rendering events ----------
+  function renderEvents(){
+    gridBody.querySelectorAll('.event').forEach(e=>e.remove());
+    const visible = state.events.filter(ev=>!state.hiddenPersons.includes(ev.person));
+    const layout = computeLayout(visible);
+    visible.forEach(ev=>{
+      const el = document.createElement('div');
+      el.className = 'event';
+      el.dataset.id = ev.id;
+      const color = colorForPerson(ev.person);
+      const {col, cols} = layout[ev.id] || {col:0, cols:1};
+      const slotWidth = (COL_WIDTH - 6) / cols;
+      const overlapGap = cols > 1 ? 2 : 0;
+      el.style.left = (ev.day*COL_WIDTH + 3 + col*slotWidth)+'px';
+      el.style.top = timeToY(ev.start)+'px';
+      el.style.width = (slotWidth - overlapGap)+'px';
+      el.style.height = Math.max(26, ev.duration/60*PX_PER_HOUR - 3) + 'px';
+      el.style.background = color.bg;
+      el.style.color = color.fg;
+      // overlapping events get slight transparency so underlying card edges
+      // stay visible/readable; non-overlapping events stay fully opaque
+      el.style.opacity = cols > 1 ? '0.82' : '1';
+      el.style.zIndex = String(2 + col);
+      if(cols > 1){
+        el.style.border = '1.5px solid rgba(255,255,255,0.7)';
+      }
+      el.innerHTML = `<div class="ev-title">${escapeHtml(ev.title)}</div><div class="ev-meta">${escapeHtml(ev.person)} · ${fmtTime(ev.start)}-${fmtTime(ev.start+ev.duration)}</div>`;
+      attachDrag(el, ev);
+      gridBody.appendChild(el);
+    });
+  }
+
+  function renderLegend(){
+    legendEl.innerHTML = '';
+    const persons = [...new Set(state.events.map(e=>e.person))];
+    persons.forEach(p=>{
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (state.hiddenPersons.includes(p) ? ' off':'');
+      const color = colorForPerson(p);
+      chip.style.setProperty('--chip-color', color.bg);
+
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'dot';
+      dot.title = '색상 바꾸기';
+      dot.setAttribute('aria-label', p + ' 색상 바꾸기');
+      dot.addEventListener('click', e=>{
+        e.stopPropagation();
+        openColorPicker(p, dot);
+      });
+
+      const label = document.createElement('button');
+      label.type = 'button';
+      label.className = 'chip-label';
+      label.textContent = p;
+      label.title = '탭하면 보이기/숨기기';
+      label.addEventListener('click', ()=>{
+        const idx = state.hiddenPersons.indexOf(p);
+        if(idx>=0) state.hiddenPersons.splice(idx,1);
+        else state.hiddenPersons.push(p);
+        renderLegend();
+        renderEvents();
+        saveData();
+      });
+
+      chip.appendChild(dot);
+      chip.appendChild(label);
+      legendEl.appendChild(chip);
+    });
+  }
+
+  // ---------- color picker popover ----------
+  let colorPickerEl = null;
+  function closeColorPicker(){
+    if(colorPickerEl){ colorPickerEl.remove(); colorPickerEl = null; }
+    document.removeEventListener('click', onOutsideClick, true);
+  }
+  function onOutsideClick(e){
+    if(colorPickerEl && !colorPickerEl.contains(e.target)) closeColorPicker();
+  }
+  function openColorPicker(person, anchorEl){
+    closeColorPicker();
+    const pop = document.createElement('div');
+    pop.className = 'color-popover';
+
+    const swatchRow = document.createElement('div');
+    swatchRow.className = 'swatch-row';
+    PALETTE.forEach(hex=>{
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'swatch';
+      sw.style.background = hex;
+      sw.title = hex;
+      if(colorForPerson(person).bg.toUpperCase() === hex.toUpperCase()) sw.classList.add('selected');
+      sw.addEventListener('click', ()=>{
+        setPersonColor(person, hex);
+        saveData();
+        renderAll();
+        closeColorPicker();
+      });
+      swatchRow.appendChild(sw);
+    });
+
+    const customRow = document.createElement('label');
+    customRow.className = 'custom-row';
+    customRow.textContent = '직접 선택';
+    const customInput = document.createElement('input');
+    customInput.type = 'color';
+    customInput.value = colorForPerson(person).bg;
+    customInput.addEventListener('input', ()=>{
+      setPersonColor(person, customInput.value);
+      saveData();
+      renderAll();
+    });
+    customRow.appendChild(customInput);
+
+    pop.appendChild(swatchRow);
+    pop.appendChild(customRow);
+    document.body.appendChild(pop);
+
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    let top = rect.bottom + 8 + window.scrollY;
+    let left = rect.left + window.scrollX;
+    if(left + popRect.width > window.innerWidth - 12) left = window.innerWidth - popRect.width - 12;
+    pop.style.top = top+'px';
+    pop.style.left = Math.max(12,left)+'px';
+
+    colorPickerEl = pop;
+    setTimeout(()=>document.addEventListener('click', onOutsideClick, true), 0);
+  }
+
+  function renderAll(){
+    renderLegend();
+    renderEvents();
+  }
+
+  // ---------- drag & drop ----------
+  // Interaction model:
+  //  - Quick tap/click (no movement, released before long-press fires) -> open edit modal
+  //  - Press and hold ~280ms (or move beyond a tiny threshold) -> drag mode starts
+  //    with a small lift animation as feedback, then the card follows the pointer
+  const LONG_PRESS_MS = 280;
+  const MOVE_THRESHOLD = 6;
+
+  function attachDrag(el, ev){
+    let startX=0, startY=0, origLeft=0, origTop=0;
+    let pid=null, dragActive=false, cancelled=false, pressTimer=null;
+
+    function startDrag(){
+      if(dragActive) return;
+      dragActive = true;
+      isInteracting = true;
+      el.classList.remove('pressing');
+      el.classList.add('dragging');
+    }
+
+    el.addEventListener('pointerdown', e=>{
+      pid = e.pointerId;
+      el.setPointerCapture(pid);
+      startX = e.clientX; startY = e.clientY;
+      origLeft = el.offsetLeft; origTop = el.offsetTop;
+      dragActive = false;
+      cancelled = false;
+      el.classList.add('pressing');
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(()=>{
+        if(!cancelled) startDrag();
+      }, LONG_PRESS_MS);
+    });
+
+    el.addEventListener('pointermove', e=>{
+      if(pid===null) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if(!dragActive){
+        if(Math.hypot(dx,dy) > MOVE_THRESHOLD){
+          clearTimeout(pressTimer);
+          startDrag();
+        } else {
+          return;
+        }
+      }
+      let nl = origLeft + dx, nt = origTop + dy;
+      nl = Math.max(0, Math.min(nl, COL_WIDTH*7 - el.offsetWidth));
+      nt = Math.max(0, Math.min(nt, TOTAL_HEIGHT - el.offsetHeight));
+      el.style.left = nl+'px';
+      el.style.top = nt+'px';
+    });
+
+    function finish(e){
+      if(pid===null) return;
+      clearTimeout(pressTimer);
+      try{ el.releasePointerCapture(pid); }catch(err){}
+      el.classList.remove('pressing');
+      el.classList.remove('dragging');
+      if(dragActive){
+        let newDay = Math.round(el.offsetLeft/COL_WIDTH);
+        newDay = Math.max(0, Math.min(6, newDay));
+        let newStart = yToMin(el.offsetTop);
+        const maxStart = END_HOUR*60 - ev.duration;
+        newStart = Math.max(START_HOUR*60, Math.min(newStart, maxStart));
+        ev.day = newDay;
+        ev.start = newStart;
+        saveData();
+        renderEvents();
+      } else if(!cancelled){
+        openModal(ev);
+      }
+      pid = null;
+      dragActive = false;
+      isInteracting = false;
+    }
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', ()=>{
+      cancelled = true;
+      clearTimeout(pressTimer);
+      pid = null;
+      dragActive = false;
+      isInteracting = false;
+      el.classList.remove('pressing');
+      el.classList.remove('dragging');
+      renderEvents();
+    });
+  }
+
+  // background click -> add new event at that time/day
+  gridBody.addEventListener('click', e=>{
+    if(e.target.closest('.event')) return; // ignore clicks that landed on an event card
+    const rect = gridBody.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    let day = Math.floor(x / COL_WIDTH);
+    day = Math.max(0, Math.min(6, day));
+    let start = yToMin(y);
+    start = Math.max(START_HOUR*60, Math.min(start, END_HOUR*60 - 60));
+    openModal(null, day, start);
+  });
+
+  // ---------- modal ----------
+  function openModal(ev, defaultDay, defaultStart){
+    isInteracting = true;
+    const isNew = !ev;
+    document.getElementById('modalTitle').textContent = isNew ? '일정 추가' : '일정 수정';
+    document.getElementById('f-title').value = ev ? ev.title : '';
+    document.getElementById('f-person').value = ev ? ev.person : lastPerson;
+    document.getElementById('f-day').value = ev ? ev.day : defaultDay;
+    document.getElementById('f-start').value = fmtTime(ev ? ev.start : defaultStart);
+    document.getElementById('f-end').value = fmtTime(ev ? ev.start+ev.duration : defaultStart+60);
+    document.getElementById('deleteBtn').style.display = isNew ? 'none' : 'inline-block';
+    modalForm.dataset.id = ev ? ev.id : '';
+    document.getElementById('formError').textContent = '';
+    modal.classList.add('open');
+    setTimeout(()=>document.getElementById('f-title').focus(), 50);
+  }
+  function closeModal(){ modal.classList.remove('open'); isInteracting = false; }
+
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+
+  modalForm.addEventListener('submit', e=>{
+    e.preventDefault();
+    const title = document.getElementById('f-title').value.trim();
+    const person = document.getElementById('f-person').value.trim();
+    const day = parseInt(document.getElementById('f-day').value, 10);
+    const start = timeInputToMin(document.getElementById('f-start').value);
+    const end = timeInputToMin(document.getElementById('f-end').value);
+    const errEl = document.getElementById('formError');
+
+    if(!title || !person){ errEl.textContent = '제목과 담당자를 입력해주세요.'; return; }
+    if(end <= start){ errEl.textContent = '종료 시간은 시작 시간보다 늦어야 해요.'; return; }
+    if(start < START_HOUR*60 || end > END_HOUR*60){
+      errEl.textContent = `시간은 ${START_HOUR}시~${END_HOUR}시 사이로 입력해주세요.`; return;
+    }
+
+    const id = modalForm.dataset.id;
+    const duration = end - start;
+    lastPerson = person;
+
+    if(id){
+      const target = state.events.find(x=>x.id===id);
+      if(target) Object.assign(target, {title, person, day, start, duration});
+    } else {
+      state.events.push({id:'e'+Date.now(), title, person, day, start, duration});
+    }
+    saveData();
+    closeModal();
+    renderAll();
+  });
+
+  document.getElementById('deleteBtn').addEventListener('click', ()=>{
+    const id = modalForm.dataset.id;
+    state.events = state.events.filter(x=>x.id!==id);
+    saveData();
+    closeModal();
+    renderAll();
+  });
+
+  document.getElementById('addBtn').addEventListener('click', ()=>{
+    openModal(null, todayIdx, 9*60);
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    if(!confirm('현재 일정을 모두 지우고 예시 시간표로 되돌릴까요?')) return;
+    state.events = DEFAULT_EVENTS.map(e=>({...e}));
+    state.personColors = {};
+    state.hiddenPersons = [];
+    saveData();
+    renderAll();
+  });
+
+  // ---------- init ----------
+  async function pollForRemoteChanges(){
+    if(backend !== 'cloud') return;
+    if(isInteracting || modal.classList.contains('open')) return;
+    try{
+      const res = await window.storage.get(LOCAL_KEY, SHARED);
+      if(res && res.value){
+        const incoming = JSON.stringify(JSON.parse(res.value));
+        const current = JSON.stringify(state);
+        if(incoming !== current){
+          const parsed = JSON.parse(res.value);
+          state.events = Array.isArray(parsed.events) ? parsed.events : [];
+          state.personColors = parsed.personColors || {};
+          state.hiddenPersons = parsed.hiddenPersons || [];
+          renderAll();
+        }
+      }
+    }catch(err){ /* ignore transient errors */ }
+  }
+
+  async function init(){
+    await loadData();
+    updateStorageNotice();
+    computeColWidth();
+    renderDayHeaders();
+    renderTimeLabels();
+    gridBody.querySelector('#loadingMsg')?.remove();
+    applyGridBackground();
+    renderAll();
+
+    window.addEventListener('resize', ()=>{
+      computeColWidth();
+      renderDayHeaders();
+      applyGridBackground();
+      renderEvents();
+    });
+
+    // pick up edits made by other family members every few seconds (cloud backend only)
+    setInterval(pollForRemoteChanges, 4000);
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'visible') pollForRemoteChanges();
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', exportData);
+    const importFileInput = document.getElementById('importFile');
+    document.getElementById('importBtn').addEventListener('click', ()=>{
+      importFileInput.value = '';
+      importFileInput.click();
+    });
+    importFileInput.addEventListener('change', e=>{
+      const file = e.target.files && e.target.files[0];
+      if(file) importDataFromFile(file);
+    });
+  }
+
+  // Button wiring is done OUTSIDE init() so async errors inside init() don't
+  // prevent the buttons from being clickable.
+  document.getElementById('exportBtn').addEventListener('click', exportData);
+  const _importFileInput = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    _importFileInput.value = '';
+    _importFileInput.click();
+  });
+  _importFileInput.addEventListener('change', e=>{
+    const file = e.target.files && e.target.files[0];
+    if(file) importDataFromFile(file);
+  });
+  document.getElementById('githubBtn').addEventListener('click', openGithubModal);
+  document.getElementById('ghCancelBtn').addEventListener('click', closeGithubModal);
+  document.getElementById('ghUploadBtn').addEventListener('click', ghUpload);
+  document.getElementById('ghDownloadBtn').addEventListener('click', ghDownload);
+  document.getElementById('githubModal').addEventListener('click', e=>{
+    if(e.target === document.getElementById('githubModal')) closeGithubModal();
+  });
+  init();
+})();
+</script>
+</body>
+</html>
