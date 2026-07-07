@@ -3,35 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>우리집 허브</title>
+<title>FAMILY HUB — Sign in</title>
 
-<!-- Supabase JS v2 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- Pretendard 폰트 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 
 <style>
   :root {
-    --bg: #F5F6F8;
-    --card: #FFFFFF;
-    --ink: #1B2430;
-    --ink-soft: #5B6472;
-    --line: #E4E7EC;
-    --coral: #E8604C;   /* 슬즈 일정 */
-    --slate: #47566B;   /* account */
-    --teal:  #0E7C7B;   /* 여행일정 */
-    --danger: #C0392B;
-    --radius: 16px;
-    font-size: 16px;
+    --k-yellow: #FAB617;
+    --k-red:    #E30613;
+    --k-black:  #111111;
+    --k-white:  #FFFFFF;
+    --k-cream:  #FFF6E0;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--ink);
+    font-family: "Pretendard", -apple-system, system-ui, sans-serif;
+    background: var(--k-yellow);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -41,297 +31,237 @@
 
   .hidden { display: none !important; }
 
-  /* ---------- 로딩 ---------- */
   #loading {
-    color: var(--ink-soft);
-    font-size: 0.95rem;
-    letter-spacing: 0.02em;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    color: var(--k-black);
+    text-transform: uppercase;
   }
 
-  /* ---------- 로그인 카드 ---------- */
-  .auth-card {
+  /* ---------- 필름 박스 카드 ---------- */
+  .film-box {
     width: 100%;
-    max-width: 400px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 40px 32px;
-    box-shadow: 0 8px 30px rgba(27, 36, 48, 0.06);
+    max-width: 420px;
+    background: var(--k-white);
+    border: 3px solid var(--k-black);
+    box-shadow: 10px 10px 0 var(--k-black);
   }
 
-  .auth-card h1 {
-    font-size: 1.5rem;
+  /* 상단 레드 밴드 */
+  .box-top {
+    background: var(--k-red);
+    color: var(--k-yellow);
+    padding: 26px 28px 22px;
+    position: relative;
+  }
+
+  .box-top .brand {
+    font-size: 1.9rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    line-height: 1.05;
+  }
+
+  .box-top .tagline {
+    margin-top: 8px;
+    font-size: 0.75rem;
     font-weight: 700;
-    margin-bottom: 6px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--k-white);
+    opacity: 0.9;
   }
 
-  .auth-card p.sub {
-    color: var(--ink-soft);
-    font-size: 0.9rem;
-    margin-bottom: 28px;
+  /* 기하학적 오리지널 모노그램 */
+  .monogram {
+    position: absolute;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 54px;
+    height: 54px;
+    background: var(--k-yellow);
+  }
+  .monogram::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    background:
+      linear-gradient(var(--k-red), var(--k-red)) left/9px 100% no-repeat,
+      linear-gradient(var(--k-red), var(--k-red)) right/9px 100% no-repeat,
+      linear-gradient(var(--k-red), var(--k-red)) center/100% 9px no-repeat;
+  }
+
+  /* 필름 스프로킷(퍼포레이션) 스트립 */
+  .sprocket {
+    height: 26px;
+    background: var(--k-black);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 10px;
+  }
+  .sprocket i {
+    width: 14px;
+    height: 10px;
+    background: var(--k-white);
+    border-radius: 2px;
+  }
+
+  /* ---------- 로그인 폼 ---------- */
+  .box-body { padding: 32px 28px 28px; }
+
+  .box-body h1 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .box-body .sub {
+    font-size: 0.83rem;
+    color: #666;
+    margin-bottom: 24px;
   }
 
   .field { margin-bottom: 16px; }
 
   .field label {
     display: block;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--ink-soft);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     margin-bottom: 6px;
+    color: var(--k-black);
   }
 
   .field input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 13px 14px;
     font-size: 1rem;
     font-family: inherit;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #FBFBFC;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    border: 2px solid var(--k-black);
+    border-radius: 0;
+    background: var(--k-cream);
+    transition: background 0.15s;
   }
 
   .field input:focus {
-    outline: none;
-    border-color: var(--teal);
-    box-shadow: 0 0 0 3px rgba(14, 124, 123, 0.12);
+    outline: 3px solid var(--k-red);
+    outline-offset: -1px;
+    background: var(--k-white);
   }
 
-  .btn-primary {
+  .btn-login {
     width: 100%;
-    padding: 13px;
-    margin-top: 8px;
-    font-size: 1rem;
-    font-weight: 600;
+    padding: 15px;
+    margin-top: 10px;
+    font-size: 0.95rem;
+    font-weight: 900;
     font-family: inherit;
-    color: #fff;
-    background: var(--ink);
-    border: none;
-    border-radius: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--k-yellow);
+    background: var(--k-red);
+    border: 2px solid var(--k-black);
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: 4px 4px 0 var(--k-black);
   }
 
-  .btn-primary:hover { opacity: 0.88; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-login:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--k-black); }
+  .btn-login:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--k-black); }
+  .btn-login:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: 4px 4px 0 var(--k-black); }
 
   .error-msg {
-    margin-top: 14px;
-    padding: 10px 12px;
-    font-size: 0.85rem;
-    color: var(--danger);
-    background: rgba(192, 57, 43, 0.07);
-    border-radius: 8px;
-  }
-
-  /* ---------- 대시보드 ---------- */
-  .dashboard {
-    width: 100%;
-    max-width: 640px;
-  }
-
-  .dash-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 28px;
-  }
-
-  .dash-header .greeting { font-size: 1.6rem; font-weight: 700; }
-  .dash-header .date {
-    font-size: 0.88rem;
-    color: var(--ink-soft);
-    margin-top: 4px;
-  }
-
-  .btn-logout {
-    padding: 8px 16px;
+    margin-top: 16px;
+    padding: 11px 13px;
     font-size: 0.85rem;
     font-weight: 600;
-    font-family: inherit;
-    color: var(--ink-soft);
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-logout:hover { background: #ECEEF1; }
-
-  .link-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    color: var(--k-white);
+    background: var(--k-red);
+    border: 2px solid var(--k-black);
   }
 
-  @media (min-width: 560px) {
-    .link-grid { grid-template-columns: repeat(3, 1fr); }
-  }
-
-  .link-card {
-    display: block;
-    text-decoration: none;
-    color: var(--ink);
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 24px 20px 20px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.15s;
-  }
-
-  .link-card::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 4px;
-    background: var(--accent);
-  }
-
-  .link-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 24px rgba(27, 36, 48, 0.10);
-  }
-
-  .link-card:focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .link-card .icon { font-size: 1.7rem; margin-bottom: 12px; display: block; }
-  .link-card .title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
-  .link-card .desc { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.45; }
-
-  .card-seulz  { --accent: var(--coral); }
-  .card-account{ --accent: var(--slate); }
-  .card-travel { --accent: var(--teal); }
-
-  .user-email {
-    margin-top: 24px;
-    font-size: 0.78rem;
-    color: var(--ink-soft);
+  .box-footer {
+    padding: 12px 28px 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #999;
     text-align: center;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .link-card, .btn-primary, .field input { transition: none; }
+    .btn-login, .field input { transition: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- 1) 세션 확인 중 -->
-<div id="loading">확인 중…</div>
+<div id="loading">Loading…</div>
 
-<!-- 2) 로그인 화면 -->
-<div id="auth-view" class="auth-card hidden">
-  <h1>우리집 허브</h1>
-  <p class="sub">등록된 가족 계정으로 로그인하세요.</p>
-
-  <div class="field">
-    <label for="email">이메일</label>
-    <input type="email" id="email" autocomplete="email" placeholder="you@example.com">
-  </div>
-  <div class="field">
-    <label for="password">비밀번호</label>
-    <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+<div id="auth-view" class="film-box hidden">
+  <div class="box-top">
+    <div class="brand">Family<br>Hub</div>
+    <div class="tagline">Members Only</div>
+    <div class="monogram" aria-hidden="true"></div>
   </div>
 
-  <button class="btn-primary" id="btn-login">로그인</button>
-  <div id="auth-error" class="error-msg hidden"></div>
-</div>
+  <div class="sprocket" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
 
-<!-- 3) 로그인 후 대시보드 -->
-<div id="dash-view" class="dashboard hidden">
-  <div class="dash-header">
-    <div>
-      <div class="greeting" id="greeting">안녕하세요!</div>
-      <div class="date" id="today"></div>
+  <div class="box-body">
+    <h1>로그인</h1>
+    <p class="sub">등록된 가족 계정으로만 입장할 수 있어요.</p>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="email" placeholder="you@example.com">
     </div>
-    <button class="btn-logout" id="btn-logout">로그아웃</button>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+
+    <button class="btn-login" id="btn-login">Sign In</button>
+    <div id="auth-error" class="error-msg hidden"></div>
   </div>
 
-  <div class="link-grid">
-    <a href="seulz-schedule.html" class="link-card card-seulz">
-      <span class="icon">🗓️</span>
-      <span class="title">슬즈 일정</span>
-      <span class="desc">윤슬·찬슬 주간 일정 보기</span>
-    </a>
-    <a href="account.html" class="link-card card-account">
-      <span class="icon">👤</span>
-      <span class="title">Account</span>
-      <span class="desc">계정 정보 및 비밀번호 관리</span>
-    </a>
-    <a href="travel.html" class="link-card card-travel">
-      <span class="icon">✈️</span>
-      <span class="title">여행일정</span>
-      <span class="desc">가족 여행 일정 및 준비물</span>
-    </a>
-  </div>
-
-  <div class="user-email" id="user-email"></div>
+  <div class="box-footer">EST. 2026 · SEUL &amp; SEUL FILMS</div>
 </div>
 
 <script>
   /* =========================================================
-     ① Supabase 설정 — 본인 프로젝트 값으로 교체하세요
-     Supabase Dashboard → Settings → API 에서 확인
+     Supabase 설정 — 본인 프로젝트 값으로 교체
+     (main.html에도 동일하게 입력해야 합니다)
      ========================================================= */
   const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
   const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  /* ---------- DOM ---------- */
   const $loading  = document.getElementById("loading");
   const $auth     = document.getElementById("auth-view");
-  const $dash     = document.getElementById("dash-view");
   const $email    = document.getElementById("email");
   const $password = document.getElementById("password");
   const $btnLogin = document.getElementById("btn-login");
-  const $btnLogout= document.getElementById("btn-logout");
   const $error    = document.getElementById("auth-error");
 
-  function show(view) {
-    $loading.classList.add("hidden");
-    $auth.classList.add("hidden");
-    $dash.classList.add("hidden");
-    view.classList.remove("hidden");
-  }
-
-  /* ---------- 시간대별 인사 + 오늘 날짜 ---------- */
-  function renderGreeting(user) {
-    const h = new Date().getHours();
-    let msg;
-    if (h < 6)       msg = "늦은 밤이에요 🌙";
-    else if (h < 12) msg = "좋은 아침이에요 ☀️";
-    else if (h < 18) msg = "좋은 오후예요 🌤️";
-    else             msg = "편안한 저녁이에요 🌆";
-    document.getElementById("greeting").textContent = msg;
-
-    document.getElementById("today").textContent =
-      new Date().toLocaleDateString("ko-KR", {
-        year: "numeric", month: "long", day: "numeric", weekday: "long"
-      });
-
-    document.getElementById("user-email").textContent =
-      user.email + " 계정으로 로그인됨";
-  }
-
-  /* ---------- 세션 확인 (페이지 진입 시) ---------- */
-  async function checkSession() {
+  /* 이미 로그인된 세션이 있으면 바로 main.html로 */
+  async function init() {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
-      renderGreeting(session.user);
-      show($dash);
-    } else {
-      show($auth);
+      location.replace("main.html");
+      return;
     }
+    $loading.classList.add("hidden");
+    $auth.classList.remove("hidden");
   }
 
-  /* ---------- 로그인 ---------- */
   async function login() {
     $error.classList.add("hidden");
     const email = $email.value.trim();
@@ -343,22 +273,20 @@
     }
 
     $btnLogin.disabled = true;
-    $btnLogin.textContent = "로그인 중…";
+    $btnLogin.textContent = "Signing in…";
 
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-
-    $btnLogin.disabled = false;
-    $btnLogin.textContent = "로그인";
+    const { error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // 등록되지 않은 사용자 / 비밀번호 오류 모두 여기로
+      $btnLogin.disabled = false;
+      $btnLogin.textContent = "Sign In";
       showError("로그인에 실패했어요. 이메일 또는 비밀번호를 확인해주세요.");
       console.error(error.message);
       return;
     }
 
-    renderGreeting(data.user);
-    show($dash);
+    /* 로그인 성공 → 메인 페이지로 이동 */
+    location.replace("main.html");
   }
 
   function showError(msg) {
@@ -366,25 +294,11 @@
     $error.classList.remove("hidden");
   }
 
-  /* ---------- 로그아웃 ---------- */
-  async function logout() {
-    await sb.auth.signOut();
-    $password.value = "";
-    show($auth);
-  }
-
-  /* ---------- 이벤트 ---------- */
   $btnLogin.addEventListener("click", login);
-  $btnLogout.addEventListener("click", logout);
   $password.addEventListener("keydown", e => { if (e.key === "Enter") login(); });
   $email.addEventListener("keydown", e => { if (e.key === "Enter") $password.focus(); });
 
-  /* ---------- 세션 상태 변화 감지 (토큰 만료 등) ---------- */
-  sb.auth.onAuthStateChange((event) => {
-    if (event === "SIGNED_OUT") show($auth);
-  });
-
-  checkSession();
+  init();
 </script>
 </body>
 </html>

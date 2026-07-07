@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAMILY HUB — Main</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
+<style>
+  :root {
+    --k-yellow: #FAB617;
+    --k-red:    #E30613;
+    --k-black:  #111111;
+    --k-white:  #FFFFFF;
+    --k-cream:  #FFF6E0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Pretendard", -apple-system, system-ui, sans-serif;
+    background: var(--k-yellow);
+    min-height: 100vh;
+    color: var(--k-black);
+  }
+
+  .hidden { display: none !important; }
+
+  #loading {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- 상단 헤더 (레드 밴드) ---------- */
+  header {
+    background: var(--k-red);
+    border-bottom: 3px solid var(--k-black);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .brand {
+    color: var(--k-yellow);
+    font-size: 1.25rem;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  .brand small {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--k-white);
+    opacity: 0.85;
+  }
+
+  .btn-logout {
+    padding: 9px 18px;
+    font-size: 0.72rem;
+    font-weight: 900;
+    font-family: inherit;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--k-red);
+    background: var(--k-white);
+    border: 2px solid var(--k-black);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--k-black);
+    transition: transform 0.1s, box-shadow 0.1s;
+    white-space: nowrap;
+  }
+  .btn-logout:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--k-black); }
+  .btn-logout:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--k-black); }
+
+  /* 스프로킷 스트립 */
+  .sprocket {
+    height: 24px;
+    background: var(--k-black);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 8px;
+  }
+  .sprocket i {
+    width: 13px;
+    height: 9px;
+    background: var(--k-white);
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin: 0 6px;
+  }
+
+  /* ---------- 본문 ---------- */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 44px 24px 60px;
+  }
+
+  .greeting-block { margin-bottom: 34px; }
+
+  .greeting {
+    font-size: clamp(1.6rem, 4.5vw, 2.3rem);
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+
+  .today {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 5px 12px;
+    background: var(--k-black);
+    color: var(--k-yellow);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- 필름 박스 링크 카드 ---------- */
+  .link-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  @media (min-width: 640px) {
+    .link-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .film-card {
+    display: block;
+    text-decoration: none;
+    color: var(--k-black);
+    background: var(--k-white);
+    border: 3px solid var(--k-black);
+    box-shadow: 7px 7px 0 var(--k-black);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+
+  .film-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 10px 10px 0 var(--k-black);
+  }
+  .film-card:active {
+    transform: translate(3px, 3px);
+    box-shadow: 2px 2px 0 var(--k-black);
+  }
+  .film-card:focus-visible {
+    outline: 4px solid var(--k-red);
+    outline-offset: 3px;
+  }
+
+  .card-band {
+    padding: 14px 18px;
+    color: var(--k-white);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-band .no { color: var(--k-yellow); }
+
+  .card-seulz  .card-band { background: var(--k-red); }
+  .card-account .card-band { background: var(--k-black); }
+  .card-travel .card-band { background: var(--k-red); }
+
+  .card-body {
+    padding: 24px 18px 22px;
+    background: var(--k-cream);
+  }
+
+  .card-body .icon { font-size: 2rem; display: block; margin-bottom: 12px; }
+  .card-body .title { font-size: 1.15rem; font-weight: 900; margin-bottom: 5px; }
+  .card-body .desc { font-size: 0.82rem; color: #555; line-height: 1.5; }
+
+  .card-arrow {
+    padding: 10px 18px;
+    background: var(--k-white);
+    border-top: 2px solid var(--k-black);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--k-red);
+  }
+
+  .user-email {
+    margin-top: 40px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+    color: rgba(17,17,17,0.55);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .film-card, .btn-logout { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">Loading…</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="brand">
+      Family Hub
+      <small>Members Only</small>
+    </div>
+    <button class="btn-logout" id="btn-logout">Sign Out</button>
+  </header>
+
+  <div class="sprocket" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+
+  <main>
+    <div class="greeting-block">
+      <div class="greeting" id="greeting">안녕하세요!</div>
+      <div class="today" id="today"></div>
+    </div>
+
+    <div class="link-grid">
+      <a href="seulz-schedule.html" class="film-card card-seulz">
+        <div class="card-band"><span>Schedule</span><span class="no">No.01</span></div>
+        <div class="card-body">
+          <span class="icon">🗓️</span>
+          <span class="title">슬즈 일정</span>
+          <p class="desc">윤슬·찬슬 주간 일정 한눈에 보기</p>
+        </div>
+        <div class="card-arrow">Open →</div>
+      </a>
+
+      <a href="account.html" class="film-card card-account">
+        <div class="card-band"><span>Account</span><span class="no">No.02</span></div>
+        <div class="card-body">
+          <span class="icon">👤</span>
+          <span class="title">Account</span>
+          <p class="desc">계정 정보 확인 및 비밀번호 관리</p>
+        </div>
+        <div class="card-arrow">Open →</div>
+      </a>
+
+      <a href="travel.html" class="film-card card-travel">
+        <div class="card-band"><span>Travel</span><span class="no">No.03</span></div>
+        <div class="card-body">
+          <span class="icon">✈️</span>
+          <span class="title">여행일정</span>
+          <p class="desc">가족 여행 일정과 준비물 체크</p>
+        </div>
+        <div class="card-arrow">Open →</div>
+      </a>
+    </div>
+
+    <div class="user-email" id="user-email"></div>
+  </main>
+</div>
+
+<script>
+  /* =========================================================
+     Supabase 설정 — index.html과 동일한 값으로 교체
+     ========================================================= */
+  const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+  const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  /* ---------- 세션 가드: 비로그인 접근 시 로그인 페이지로 ---------- */
+  async function guard() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      location.replace("index.html");
+      return;
+    }
+    render(session.user);
+  }
+
+  function render(user) {
+    const h = new Date().getHours();
+    let msg;
+    if (h < 6)       msg = "늦은 밤이에요 🌙";
+    else if (h < 12) msg = "좋은 아침이에요 ☀️";
+    else if (h < 18) msg = "좋은 오후예요 🌤️";
+    else             msg = "편안한 저녁이에요 🌆";
+    document.getElementById("greeting").textContent = msg;
+
+    document.getElementById("today").textContent =
+      new Date().toLocaleDateString("ko-KR", {
+        year: "numeric", month: "long", day: "numeric", weekday: "long"
+      });
+
+    document.getElementById("user-email").textContent =
+      "Signed in as " + user.email;
+
+    document.getElementById("loading").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+  }
+
+  /* ---------- 로그아웃 ---------- */
+  document.getElementById("btn-logout").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.replace("index.html");
+  });
+
+  /* 토큰 만료 등으로 세션이 사라지면 자동 리다이렉트 */
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") location.replace("index.html");
+  });
+
+  guard();
+</script>
+</body>
+</html>
