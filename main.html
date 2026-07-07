@@ -201,6 +201,38 @@
     color: var(--k-red);
   }
 
+  /* ---------- 준비중 카드 ---------- */
+  .film-card.is-coming { cursor: default; }
+  .film-card.is-coming .card-body { filter: grayscale(0.35); opacity: 0.75; }
+  .card-arrow.coming {
+    color: var(--k-black);
+    background: var(--k-yellow);
+  }
+
+  /* ---------- 준비중 토스트 ---------- */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 34px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--k-black);
+    color: var(--k-yellow);
+    padding: 13px 22px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    border: 2px solid var(--k-yellow);
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 99;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
   .user-email {
     margin-top: 40px;
     font-size: 0.72rem;
@@ -240,7 +272,7 @@
     </div>
 
     <div class="link-grid">
-      <a href="seulz-schedule.html" class="film-card card-seulz">
+      <a href="family-schedule.html" class="film-card card-seulz">
         <div class="card-band"><span>Schedule</span><span class="no">No.01</span></div>
         <div class="card-body">
           <span class="icon">🗓️</span>
@@ -250,17 +282,17 @@
         <div class="card-arrow">Open →</div>
       </a>
 
-      <a href="account.html" class="film-card card-account">
+      <a href="#" class="film-card card-account is-coming" id="card-account" role="button" aria-disabled="true">
         <div class="card-band"><span>Account</span><span class="no">No.02</span></div>
         <div class="card-body">
           <span class="icon">👤</span>
           <span class="title">Account</span>
           <p class="desc">계정 정보 확인 및 비밀번호 관리</p>
         </div>
-        <div class="card-arrow">Open →</div>
+        <div class="card-arrow coming">Coming Soon</div>
       </a>
 
-      <a href="travel.html" class="film-card card-travel">
+      <a href="bali_master_plan.html" class="film-card card-travel">
         <div class="card-band"><span>Travel</span><span class="no">No.03</span></div>
         <div class="card-body">
           <span class="icon">✈️</span>
@@ -275,12 +307,14 @@
   </main>
 </div>
 
+<div id="toast" role="status">🛠️ Account 페이지는 준비 중이에요!</div>
+
 <script>
   /* =========================================================
      Supabase 설정 — index.html과 동일한 값으로 교체
      ========================================================= */
-  const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+  const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+  const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -314,6 +348,16 @@
     document.getElementById("loading").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
   }
+
+  /* ---------- Account 준비중 토스트 ---------- */
+  let toastTimer;
+  document.getElementById("card-account").addEventListener("click", (e) => {
+    e.preventDefault();
+    const $toast = document.getElementById("toast");
+    $toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $toast.classList.remove("show"), 2200);
+  });
 
   /* ---------- 로그아웃 ---------- */
   document.getElementById("btn-logout").addEventListener("click", async () => {
