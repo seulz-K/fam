@@ -49,10 +49,11 @@
             gap: 15px;
         }
 
-        /* 개별 메뉴 카드 링크 */
-        .menu-item a {
+        /* 개별 메뉴 카드 링크 및 버튼 */
+        .menu-item a, .menu-item button {
             display: flex;
             align-items: center;
+            width: 100%;
             padding: 20px 25px;
             text-decoration: none;
             border-radius: 15px;
@@ -60,6 +61,8 @@
             border: 1px solid #eaeaea;
             transition: all 0.3s ease;
             box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            cursor: pointer;
+            font-family: inherit;
         }
 
         /* 메뉴 카드 아이콘 공간 */
@@ -83,7 +86,7 @@
         }
 
         /* 마우스 호버 효과 (마우스를 올리거나 터치할 때) */
-        .menu-item a:hover {
+        .menu-item a:hover, .menu-item button:hover {
             transform: translateY(-3px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
         }
@@ -92,8 +95,8 @@
         .academy a:hover { border-color: #4ea8de; }
         .academy .menu-title { color: #4ea8de; }
         
-        .account a:hover { border-color: #2a9d8f; }
-        .account .menu-title { color: #2a9d8f; }
+        .account button:hover { border-color: #95a5a6; background-color: #fcfcfc; }
+        .account .menu-title { color: #7f8c8d; }
         
         .travel a:hover { border-color: #e76f51; }
         .travel .menu-title { color: #e76f51; }
@@ -107,7 +110,7 @@
         
         <ul class="menu-list">
             <li class="menu-item academy">
-                <a href="academy.html">
+                <a href="슬즈일정.html">
                     <span class="menu-icon">📅</span>
                     <div class="menu-text">
                         <div class="menu-title">학원 schedule</div>
@@ -117,21 +120,21 @@
             </li>
 
             <li class="menu-item account">
-                <a href="account.html">
+                <button onclick="alert('자산 현황 페이지는 아직 준비 중입니다! 업데이트를 기다려주세요.')">
                     <span class="menu-icon">💰</span>
                     <div class="menu-text">
                         <div class="menu-title">자산 현황 (account)</div>
-                        <div class="menu-desc">가계 자산 흐름 및 수입/지출 내역 기록</div>
+                        <div class="menu-desc">페이지 준비 중 (가계 자산 흐름 및 수입/지출 내역)</div>
                     </div>
-                </a>
+                </button>
             </li>
 
             <li class="menu-item travel">
-                <a href="travel.html">
+                <a href="bali_master_plan.html">
                     <span class="menu-icon">✈️</span>
                     <div class="menu-text">
                         <div class="menu-title">여행 일정</div>
-                        <div class="menu-desc">가족 여행 계획, 준비물 및 숙소 정보</div>
+                        <div class="menu-desc">발리 가족 여행 계획, 준비물 및 숙소 정보</div>
                     </div>
                 </a>
             </li>
