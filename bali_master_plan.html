@@ -521,6 +521,43 @@
   .ed-toolbar .ed-revert{background:#F9ECE7;color:var(--coral);}
   .ed-toolbar .ed-hint{font-size:11px;color:#5E7B76;}
 
+  /* ───────── 구성 편집 모드 ───────── */
+  .ed-chiprow{display:flex;justify-content:flex-end;margin:8px 0 -6px;}
+  #st-fab{
+    position:fixed;right:18px;bottom:18px;z-index:98;
+    font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:.06em;
+    padding:12px 18px;border-radius:999px;border:1px solid var(--sea);
+    background:#fff;color:var(--sea);cursor:pointer;
+    box-shadow:0 4px 14px rgba(9,58,62,.18);
+  }
+  #st-fab.on{background:var(--sea);color:#fff;}
+  #st-savebar{
+    position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:98;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+    background:var(--sea-deep);color:#EDE8D8;font-size:12.5px;
+    padding:10px 16px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    max-width:92vw;
+  }
+  #st-savebar button{
+    font-family:var(--mono);font-size:11.5px;font-weight:700;
+    padding:8px 15px;border-radius:8px;border:none;cursor:pointer;
+  }
+  #st-save{background:var(--gold);color:#fff;}
+  #st-cancel{background:rgba(255,255,255,.15);color:#EDE8D8;}
+  .st-ctrl{
+    display:inline-flex;gap:4px;margin:0 8px 6px 0;vertical-align:middle;
+  }
+  .st-ctrl.side{display:flex;justify-content:flex-end;margin:8px 0 4px;}
+  .st-ctrl button{
+    font-size:12px;line-height:1;padding:6px 9px;border-radius:7px;
+    border:1px solid #BFD4CF;background:#fff;color:var(--sea);cursor:pointer;
+  }
+  .st-ctrl button:hover{background:#E7F0EE;}
+  body.structmode .ed-btn,
+  body.structmode .pn-btn,
+  body.structmode .pn-panel{display:none !important;}
+  body.structmode #st-fab{border-width:2px;}
+
   .pn-btn{
     display:inline-flex;align-items:center;gap:3px;margin-left:8px;
     font-family:var(--mono);font-size:10.5px;vertical-align:middle;
@@ -1036,8 +1073,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1357,23 +1394,35 @@ $id("ck-in-btn").addEventListener("click", async ()=>{
 $id("ck-in-name").addEventListener("keydown", e=>{ if(e.key==="Enter") $id("ck-in-btn").click(); });
 
 /* =========================================================
-   살아있는 문서 시스템
-   ① 본문 직접 수정(plan_edits) ② 업데이트 메모(plan_notes)
+   살아있는 문서 시스템 v2
+   ① 본문 수정(plan_edits)  ② 업데이트 메모(plan_notes)
+   ③ 구성 편집 — 카드/테이블 이동·복제·삭제 (섹션 단위 저장)
    ========================================================= */
 let pnUser = null;
 let pnNotes = {};     // note_key -> [notes]
 let edEdits = {};     // ed_key -> edit row
-let edOriginal = {};  // ed_key -> 원본 HTML (되돌리기용)
+let edOriginal = {};  // ed_key -> 원본 HTML
+let stDirty = new Set();     // 구성이 변경된 섹션 id
+let stRemoved = [];          // 구성 모드에서 삭제된 edkey 목록
+let stMode = false;
 
 const ED_DEFS = [
-  { sel: ".day-head h3",     type: "h3",   note: true  },
-  { sel: ".block-title h2",  type: "h2",   note: true  },
-  { sel: ".block-lede",      type: "lede", note: false },
-  { sel: ".note",            type: "note", note: false },
-  { sel: ".warn",            type: "warn", note: false },
-  { sel: "#prep ol.todo li", type: "todo", note: true  },
-  { sel: "section .opt",     type: "opt",  note: true  }
+  { sel: ".day-head h3",     lsel: ".day-head h3",    type: "h3",      note: true  },
+  { sel: ".block-title h2",  lsel: ".block-title h2", type: "h2",      note: true  },
+  { sel: ".block-lede",      lsel: ".block-lede",     type: "lede",    note: false },
+  { sel: "section .day-loc", lsel: ".day-loc",        type: "loc",     note: false },
+  { sel: "section h4",       lsel: "h4",              type: "h4",      note: false },
+  { sel: "section table",    lsel: "table",           type: "table",   note: false },
+  { sel: "section .bagflow", lsel: ".bagflow",        type: "bag",     note: false },
+  { sel: ".note",            lsel: ".note",           type: "note",    note: false },
+  { sel: ".warn",            lsel: ".warn",           type: "warn",    note: false },
+  { sel: "section .verdict", lsel: ".verdict",        type: "verdict", note: false },
+  { sel: "#prep ol.todo li", lsel: "ol.todo li",      type: "todo",    note: true  },
+  { sel: "section .opt",     lsel: ".opt",            type: "opt",     note: true  }
 ];
+const SIDE_BTN = ["table", "bag", "lede", "h4", "loc"];  // 컨트롤을 요소 밖(위)에 다는 타입
+const MOVABLE  = ["opt","todo","table","note","warn","verdict","h4","loc","bag","lede"];
+const INJECTED = ".ed-btn,.pn-btn,.pn-panel,.pn-form,.ed-toolbar,.ed-chiprow,.st-ctrl";
 
 async function liveInit(session){
   pnUser = session.user;
@@ -1387,26 +1436,32 @@ async function liveInit(session){
   if(pnRes.error) console.error("notes load:", pnRes.error);
   else pnRes.data.forEach(n => { (pnNotes[n.note_key] ??= []).push(n); });
 
-  // 1) 요소마다 고정 키 부여 + 원본 백업
-  edAssignKeys();
-  // 2) 저장된 본문 수정 적용
+  // 1) 저장된 "섹션 구성" 먼저 적용
+  Object.keys(edEdits).forEach(k=>{
+    if(!k.endsWith(":body")) return;
+    const sec = document.getElementById(k.slice(0, -5));
+    if(sec) sec.innerHTML = edEdits[k].html;
+  });
+  // 2) 키 부여 + 원본 백업
+  assignKeys(document);
+  // 3) 개별 본문 수정 적용
   document.querySelectorAll("[data-edkey]").forEach(el=>{
     const e = edEdits[el.dataset.edkey];
     if(e) el.innerHTML = e.html;
   });
-  // 3) 구버전 메모 키 마이그레이션 (제목 기반 → 위치 기반)
+  // 4) 구버전 메모 키 마이그레이션
   await pnMigrateKeys();
-  // 4) 버튼 부착
+  // 5) 버튼 부착 + 구성 모드 토글 버튼
   document.querySelectorAll("[data-edkey]").forEach(el => decorate(el));
+  stMakeFab();
 }
 
-/* ---------- 위치 기반 고정 키 부여 ---------- */
-function edAssignKeys(){
+/* ---------- 위치 기반 키 부여 (root 범위 지정 가능) ---------- */
+function assignKeys(root){
   const counters = {};
   ED_DEFS.forEach(def=>{
-    document.querySelectorAll(def.sel).forEach(el=>{
+    root.querySelectorAll(def.sel).forEach(el=>{
       if(el.closest("#checklist") || el.closest("#links")) return;
-      if(el.dataset.edkey) return;
       const sec = el.closest("section");
       const sid = sec ? sec.id : "root";
       const ck = sid + ":" + def.type;
@@ -1414,22 +1469,21 @@ function edAssignKeys(){
       el.dataset.edkey = `${sid}:${def.type}:${counters[ck]}`;
       el.dataset.edtype = def.type;
       el.dataset.ednote = def.note ? "1" : "";
-      edOriginal[el.dataset.edkey] = el.innerHTML;
+      if(!(el.dataset.edkey in edOriginal))
+        edOriginal[el.dataset.edkey] = el.innerHTML;
     });
   });
 }
 
-/* ---------- 메모 키 결정 ---------- */
 function noteKeyOf(el){
   const t = el.dataset.edtype;
   if(t === "h3" || t === "h2"){
     const sec = el.closest("section");
-    return "sec:" + (sec ? sec.id : "root");   // 기존 키 그대로 유지
+    return "sec:" + (sec ? sec.id : "root");
   }
   return "nk:" + el.dataset.edkey;
 }
 
-/* ---------- 구버전 텍스트 기반 메모 키 → 새 키로 이전 ---------- */
 async function pnMigrateKeys(){
   const updates = [];
   document.querySelectorAll('[data-edtype="todo"]').forEach(li=>{
@@ -1457,15 +1511,12 @@ async function pnMigrateKeys(){
   }
 }
 
-/* ---------- 요소에 버튼 부착 ---------- */
+/* ---------- 버튼 부착 ---------- */
 function decorate(el){
-  el.querySelectorAll(":scope .ed-btn, :scope .pn-btn").forEach(x=>x.remove());
-  const anchor = el.querySelector("b, .name") &&
-                 (el.dataset.edtype === "todo" || el.dataset.edtype === "opt")
-    ? el.querySelector(el.dataset.edtype === "todo" ? "b" : ".name")
-    : el;
+  el.querySelectorAll(":scope > .ed-btn, :scope > .pn-btn").forEach(x=>x.remove());
+  const prevChip = el.previousElementSibling;
+  if(prevChip?.classList?.contains("ed-chiprow")) prevChip.remove();
 
-  // ✎ 본문 수정 버튼
   const eb = document.createElement("span");
   eb.className = "ed-btn" + (edEdits[el.dataset.edkey] ? " has" : "");
   eb.textContent = "✎";
@@ -1474,51 +1525,69 @@ function decorate(el){
     e.preventDefault(); e.stopPropagation();
     edStart(el);
   });
-  anchor.appendChild(eb);
 
-  // 📌 업데이트 메모 버튼 (지정된 타입만)
-  if(el.dataset.ednote){
-    const key = noteKeyOf(el);
-    const notes = pnNotes[key] || [];
-    const pb = document.createElement("span");
-    pb.className = "pn-btn" + (notes.length ? " has" : "");
-    pb.innerHTML = notes.length ? `📌 ${notes.length}` : "✏️";
-    pb.title = "업데이트 메모";
-    const host = (el.dataset.edtype === "h3" || el.dataset.edtype === "h2")
-      ? el.closest(".day-head, .block-title") : el;
-    const inside = !(el.dataset.edtype === "h3" || el.dataset.edtype === "h2");
-    pb.addEventListener("click", (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      pnTogglePanel(key, host, inside, pb);
-    });
-    anchor.appendChild(pb);
-    if(notes.length) pnTogglePanel(key, host, inside, pb, true);
+  if(SIDE_BTN.includes(el.dataset.edtype)){
+    // 테이블 등은 요소 위 오른쪽에 칩으로
+    const chip = document.createElement("div");
+    chip.className = "ed-chiprow";
+    chip.dataset.for = el.dataset.edkey;
+    chip.appendChild(eb);
+    el.insertAdjacentElement("beforebegin", chip);
+  } else {
+    const anchor = (el.dataset.edtype === "todo" && el.querySelector("b"))
+      || (el.dataset.edtype === "opt" && el.querySelector(".name"))
+      || el;
+    anchor.appendChild(eb);
+
+    if(el.dataset.ednote){
+      const key = noteKeyOf(el);
+      const notes = pnNotes[key] || [];
+      const pb = document.createElement("span");
+      pb.className = "pn-btn" + (notes.length ? " has" : "");
+      pb.innerHTML = notes.length ? `📌 ${notes.length}` : "✏️";
+      pb.title = "업데이트 메모";
+      const host = (el.dataset.edtype === "h3" || el.dataset.edtype === "h2")
+        ? el.closest(".day-head, .block-title") : el;
+      const inside = !(el.dataset.edtype === "h3" || el.dataset.edtype === "h2");
+      pb.addEventListener("click", (e)=>{
+        e.preventDefault(); e.stopPropagation();
+        pnTogglePanel(key, host, inside, pb);
+      });
+      anchor.appendChild(pb);
+      if(notes.length) pnTogglePanel(key, host, inside, pb, true);
+    }
   }
 }
 
 /* =========================================================
-   본문 직접 수정
+   본문 직접 수정 (테이블 포함)
    ========================================================= */
 function edStart(el){
+  if(stMode){ ckToast("구성 편집을 먼저 저장/종료해주세요"); return; }
   if(document.querySelector(".ed-active")){
     ckToast("진행 중인 편집을 먼저 완료해주세요");
     return;
   }
-  // 주입된 UI 제거 후 편집 진입
-  el.querySelectorAll(".ed-btn, .pn-btn, .pn-panel, .pn-form").forEach(x=>x.remove());
+  el.querySelectorAll(INJECTED).forEach(x=>x.remove());
+  const prevChip = el.previousElementSibling;
+  if(prevChip?.classList?.contains("ed-chiprow")) prevChip.remove();
+
   el.dataset.prev = el.innerHTML;
   el.classList.add("ed-active");
   el.contentEditable = "true";
   el.focus();
 
+  const isTable = el.tagName === "TABLE";
+  const hasEdit = !!edEdits[el.dataset.edkey];
   const bar = document.createElement("div");
   bar.className = "ed-toolbar";
-  const hasEdit = !!edEdits[el.dataset.edkey];
+  bar.setAttribute("contenteditable", "false");
   bar.innerHTML = `
     <button class="ed-save">저장</button>
     <button class="ed-cancel">취소</button>
-    ${hasEdit ? `<button class="ed-revert">원본으로 되돌리기</button>` : ""}
-    <span class="ed-hint">텍스트를 직접 고친 뒤 저장을 누르세요</span>`;
+    ${isTable ? `<button class="ed-rowadd">＋ 행 추가</button><button class="ed-rowdel">－ 마지막 행</button>` : ""}
+    ${hasEdit ? `<button class="ed-revert">원본으로</button>` : ""}
+    <span class="ed-hint">${isTable ? "칸을 눌러 내용을 고치세요" : "텍스트를 직접 고친 뒤 저장"}</span>`;
   el.insertAdjacentElement("afterend", bar);
 
   bar.querySelector(".ed-save").addEventListener("click", ()=> edSave(el, bar));
@@ -1532,11 +1601,24 @@ function edStart(el){
     edEnd(el, bar, edOriginal[key]);
     ckToast("원본으로 되돌렸습니다 ✓");
   });
+  bar.querySelector(".ed-rowadd")?.addEventListener("click", ()=>{
+    const rows = el.rows;
+    if(!rows.length) return;
+    const last = rows[rows.length - 1];
+    const nr = last.cloneNode(true);
+    [...nr.cells].forEach(c => c.innerHTML = "&nbsp;");
+    last.insertAdjacentElement("afterend", nr);
+  });
+  bar.querySelector(".ed-rowdel")?.addEventListener("click", ()=>{
+    const rows = el.rows;
+    if(rows.length <= 1){ ckToast("더 이상 삭제할 행이 없어요"); return; }
+    rows[rows.length - 1].remove();
+  });
 }
 
 async function edSave(el, bar){
   const clone = el.cloneNode(true);
-  clone.querySelectorAll(".ed-btn, .pn-btn, .pn-panel, .pn-form").forEach(x=>x.remove());
+  clone.querySelectorAll(INJECTED).forEach(x=>x.remove());
   const htmlContent = clone.innerHTML.trim();
   const key = el.dataset.edkey;
   const author = (pnUser.email || "가족").split("@")[0];
@@ -1548,7 +1630,7 @@ async function edSave(el, bar){
   if(error){ ckToast("저장 실패: " + error.message); return; }
   edEdits[key] = data;
   edEnd(el, bar, htmlContent);
-  ckToast("본문이 저장되었습니다 ✓ 가족 모두에게 반영돼요");
+  ckToast("저장되었습니다 ✓ 가족 모두에게 반영돼요");
 }
 
 function edEnd(el, bar, htmlContent){
@@ -1561,7 +1643,219 @@ function edEnd(el, bar, htmlContent){
 }
 
 /* =========================================================
-   업데이트 메모 (기존 기능)
+   구성 편집 모드 — 이동 · 복제 · 삭제
+   ========================================================= */
+function stMakeFab(){
+  const fab = document.createElement("button");
+  fab.id = "st-fab";
+  fab.innerHTML = "🧩 구성 편집";
+  fab.addEventListener("click", stToggle);
+  document.body.appendChild(fab);
+
+  const savebar = document.createElement("div");
+  savebar.id = "st-savebar";
+  savebar.innerHTML = `
+    <span id="st-msg">구성 변경 중…</span>
+    <button id="st-save">변경 저장</button>
+    <button id="st-cancel">취소</button>`;
+  savebar.style.display = "none";
+  document.body.appendChild(savebar);
+  document.getElementById("st-save").addEventListener("click", stSaveAll);
+  document.getElementById("st-cancel").addEventListener("click", ()=>{
+    if(stDirty.size && !confirm("저장하지 않은 구성 변경이 사라집니다. 취소할까요?")) return;
+    location.reload();
+  });
+}
+
+function stToggle(){
+  if(document.querySelector(".ed-active")){ ckToast("본문 편집을 먼저 완료해주세요"); return; }
+  stMode = !stMode;
+  document.body.classList.toggle("structmode", stMode);
+  document.getElementById("st-fab").classList.toggle("on", stMode);
+  document.getElementById("st-savebar").style.display = stMode ? "flex" : "none";
+
+  if(stMode){
+    document.querySelectorAll(".ed-chiprow").forEach(x=>x.remove());
+    document.querySelectorAll("[data-edkey]").forEach(el=>{
+      if(!MOVABLE.includes(el.dataset.edtype)) return;
+      stAttachCtrl(el);
+    });
+    stUpdateMsg();
+    ckToast("항목을 이동·복제·삭제한 뒤 '변경 저장'을 누르세요");
+  } else {
+    if(stDirty.size){
+      stMode = true;
+      document.body.classList.add("structmode");
+      document.getElementById("st-fab").classList.add("on");
+      document.getElementById("st-savebar").style.display = "flex";
+      ckToast("변경 저장 또는 취소를 먼저 눌러주세요");
+      return;
+    }
+    document.querySelectorAll(".st-ctrl").forEach(x=>x.remove());
+    document.querySelectorAll("[data-edkey]").forEach(el => decorate(el));
+  }
+}
+
+function stAttachCtrl(el){
+  const side = SIDE_BTN.includes(el.dataset.edtype);
+  if(side){
+    const p = el.previousElementSibling;
+    if(p?.classList?.contains("st-ctrl")) return;
+  } else if(el.querySelector(":scope > .st-ctrl")) return;
+
+  const c = document.createElement("div");
+  c.className = "st-ctrl" + (side ? " side" : "");
+  c.innerHTML = `
+    <button data-a="up" title="위로">▲</button>
+    <button data-a="down" title="아래로">▼</button>
+    <button data-a="dup" title="복제">⧉</button>
+    <button data-a="del" title="삭제">🗑</button>`;
+  c.addEventListener("click", (e)=>{
+    const a = e.target.dataset.a;
+    if(!a) return;
+    e.preventDefault(); e.stopPropagation();
+    stAction(el, a);
+  });
+  if(side) el.insertAdjacentElement("beforebegin", c);
+  else el.prepend(c);
+}
+
+function blockOf(el){
+  const p = el.previousElementSibling;
+  return (p && p.classList.contains("st-ctrl") && p.classList.contains("side"))
+    ? [p, el] : [el];
+}
+
+function stSibling(el, dir){
+  let s = dir === "up" ? el.previousElementSibling : el.nextElementSibling;
+  while(s && (s.classList.contains("st-ctrl") || s.classList.contains("ed-chiprow") || s.classList.contains("ed-toolbar")))
+    s = dir === "up" ? s.previousElementSibling : s.nextElementSibling;
+  return (s && s.dataset?.edkey) ? s : null;
+}
+
+function stAction(el, a){
+  const sec = el.closest("section");
+  const block = blockOf(el);   // [side컨트롤?, 요소]
+
+  if(a === "up" || a === "down"){
+    const target = stSibling(block[0], a);
+    if(!target){ ckToast("더 이동할 수 없어요"); return; }
+    const tBlock = blockOf(target);
+    if(a === "up"){
+      block.forEach(n => tBlock[0].insertAdjacentElement("beforebegin", n));
+    } else {
+      [...block].reverse().forEach(n => target.insertAdjacentElement("afterend", n));
+    }
+  }
+  else if(a === "dup"){
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll(INJECTED).forEach(x=>x.remove());
+    clone.dataset.edtype = el.dataset.edtype;
+    clone.dataset.ednote = el.dataset.ednote;
+    clone.dataset.edkey = "tmp:" + Date.now();
+    el.insertAdjacentElement("afterend", clone);
+    stAttachCtrl(clone);
+    ckToast("복제되었습니다 — 저장 후 ✎로 내용을 고치세요");
+  }
+  else if(a === "del"){
+    const hasNotes = el.dataset.ednote && (pnNotes[noteKeyOf(el)]||[]).length;
+    const msg = hasNotes
+      ? "이 항목과 달려있는 메모가 함께 삭제됩니다. 계속할까요?"
+      : "이 항목을 삭제할까요?";
+    if(!confirm(msg)) return;
+    stRemoved.push(el.dataset.edkey);
+    if(block[0] !== el) block[0].remove();
+    el.remove();
+  }
+  if(sec){ stDirty.add(sec.id); stUpdateMsg(); }
+}
+
+function stUpdateMsg(){
+  const m = document.getElementById("st-msg");
+  m.textContent = stDirty.size
+    ? `${[...stDirty].map(s=>s.toUpperCase()).join(", ")} 변경됨`
+    : "항목의 ▲▼⧉🗑 버튼으로 구성을 바꾸세요";
+}
+
+/* ---------- 구성 저장: 섹션 통째로 저장 + 키 재계산 + 메모 이전 ---------- */
+async function stSaveAll(){
+  if(!stDirty.size){ ckToast("변경된 내용이 없어요"); return; }
+  const author = (pnUser.email || "가족").split("@")[0];
+
+  for(const sid of stDirty){
+    const sec = document.getElementById(sid);
+    if(!sec) continue;
+
+    // 1) 기존 키 스냅샷 → 재계산 → 이동된 요소의 메모 키 이전
+    const before = new Map();
+    sec.querySelectorAll("[data-edkey]").forEach(el=>{
+      if(!el.dataset.edkey.startsWith("tmp:")) before.set(el, el.dataset.edkey);
+    });
+    assignKeysScoped(sec);
+    const remap = [];
+    before.forEach((oldKey, el)=>{
+      if(el.dataset.edkey !== oldKey) remap.push([oldKey, el.dataset.edkey]);
+    });
+    for(const [o, n] of remap){
+      if(pnNotes["nk:"+o]){
+        await sb.from("plan_notes").update({ note_key: "nk:"+n }).eq("note_key", "nk:"+o);
+        pnNotes["nk:"+n] = pnNotes["nk:"+o]; delete pnNotes["nk:"+o];
+      }
+      edOriginal[n] = edOriginal[o] ?? el?.innerHTML;
+    }
+    // 삭제된 항목의 메모 정리
+    for(const rk of stRemoved.filter(k=>k.startsWith(sid+":"))){
+      if(pnNotes["nk:"+rk]){
+        await sb.from("plan_notes").delete().eq("note_key", "nk:"+rk);
+        delete pnNotes["nk:"+rk];
+      }
+    }
+
+    // 2) 섹션 본문 정리본 저장
+    const clone = sec.cloneNode(true);
+    clone.querySelectorAll(INJECTED).forEach(x=>x.remove());
+    clone.querySelectorAll("[data-edkey]").forEach(el=>{
+      delete el.dataset.edkey; delete el.dataset.edtype;
+      delete el.dataset.ednote; delete el.dataset.prev;
+      el.removeAttribute("contenteditable");
+      el.classList.remove("ed-active");
+    });
+    const { error } = await sb.from("plan_edits").upsert({
+      ed_key: sid + ":body", html: clone.innerHTML,
+      author, updated_at: new Date().toISOString()
+    });
+    if(error){ ckToast(sid + " 저장 실패: " + error.message); return; }
+
+    // 3) 개별 수정본은 본문에 이미 반영됐으니 정리
+    await sb.from("plan_edits").delete()
+      .like("ed_key", sid + ":%").neq("ed_key", sid + ":body");
+    Object.keys(edEdits).forEach(k=>{
+      if(k.startsWith(sid + ":") && k !== sid + ":body") delete edEdits[k];
+    });
+  }
+
+  stDirty.clear();
+  stRemoved = [];
+  ckToast("구성이 저장되었습니다 ✓ 새로고침합니다");
+  setTimeout(()=>location.reload(), 900);
+}
+
+function assignKeysScoped(sec){
+  const counters = {};
+  const sid = sec.id;
+  ED_DEFS.forEach(def=>{
+    sec.querySelectorAll(def.lsel).forEach(el=>{
+      const ck = sid + ":" + def.type;
+      counters[ck] = (counters[ck] ?? -1) + 1;
+      el.dataset.edkey = `${sid}:${def.type}:${counters[ck]}`;
+      el.dataset.edtype = def.type;
+      el.dataset.ednote = def.note ? "1" : "";
+    });
+  });
+}
+
+/* =========================================================
+   업데이트 메모
    ========================================================= */
 function pnTogglePanel(key, host, inside, btn, forceOpen){
   let panel = (inside ? host : host.parentElement)
@@ -1664,6 +1958,7 @@ function pnSyncBtn(btn, key){
 }
 
 ckInit();
+
 
 </script>
 </body>
