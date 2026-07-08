@@ -949,8 +949,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -978,10 +978,36 @@ const CK_SEED = [
   { g:0, n:"면봉 (개별포장)", t:"멸균 상태로 약 바를 때 위생적" },
   { g:0, n:"모기 기피제", t:"말라리아/뎅기열 예방 필수 — 다 쓰면 현지서 저렴하게 재구매 가능" },
   { g:0, n:"버물리/물린디 (벌레 물린 데 바르는 약)", t:"모기 물림 진정" },
+  { g:0, n:"알러지약 (항히스타민제)", t:"햇빛알러지·물벼룩·음식알러지 대비 — 병원 처방이 가장 좋음. 한국에서 없던 햇빛알러지가 발리에서 올라오는 경우 많음" },
+  { g:0, n:"종합감기약 (테라플루 등)", t:"에어컨 + 밤수영으로 감기 걸리기 쉬움" },
+  { g:0, n:"아이용 해열제·감기약", t:"아이 동반 시 성인용과 별도로 준비" },
+  { g:0, n:"소화제·위장약", t:"체하거나 소화불량 대비" },
+  { g:0, n:"비판텐 연고", t:"벌레물림·화상·피부질환 다용도 추천" },
+  { g:0, n:"습윤밴드", t:"물놀이 많은 발리에선 데일리밴드보다 활용도 높음 — 현지는 매우 비쌈" },
+  { g:0, n:"화상크림 (썬번 대비)", t:"썬번 대비용" },
+  { g:0, n:"썬크림·썬스틱", t:"발리 현지가 비싸니 국내 구매 추천 (알로에젤은 무거우니 현지 구매 OK)" },
+  { g:0, n:"파스·타박상 연고", t:"비상용 파스, 타박상 치료키트" },
+  { g:0, n:"생리대 등 위생용품", t:"발리 생리대 가격이 비싸니 미리 준비" },
   { g:1, n:"항생제 (메트로니다졸·아목시실린 등)", t:"발리벨리 대비 — 의사 상담 후 처방" },
   { g:1, n:"파상풍 주사", t:"10년에 1회 — 항체 여부는 피검사로 확인 가능, 미리 접종 권장" },
   { g:2, n:"하이드랄라이트 / 파롤릿 (ORS 전해질)", t:"발리 약국 흔함, 1포 200원 수준 — 탈수 시 포카리보다 적합" },
   { g:2, n:"모기 기피제 리필", t:"현지 구매가 저렴" },
+  { g:2, n:"NORIT 노릿 (활성탄)", t:"발리밸리 1순위 ★ — 장 속 독소 흡착·배출. 지사제보다 먼저! 1회 5알·1일 15알 이내, 성인·어린이 모두. 편의점에서도 구매 가능" },
+  { g:2, n:"Oralit 오랄릿 (ORS 전해질)", t:"설사·구토 탈수 예방 — 물 200ml에 1포, 탄 뒤 24시간 이내 섭취" },
+  { g:2, n:"Imodium 이모디움 (로페라마이드)", t:"지사제 — 독소 배출이 먼저이니 바로 먹지 말고 설사가 2~3일 이상 갈 때. 성인용, 하루 최대 4회" },
+  { g:2, n:"Diapet Anak 디아펫", t:"아이 응급용 지사제 — 설사가 심할 때" },
+  { g:2, n:"PROMAG 프로마그", t:"메스꺼움·구토에 효과 — 8가지 허브 성분, 씹어서 물과 함께" },
+  { g:2, n:"Panadol Extra 파나돌", t:"인니 국민 감기약·진통해열제 — 두통·발열. 없으면 똘락앙인으로 대체" },
+  { g:2, n:"Paracetamol 파라세타몰", t:"타이레놀 계열 기본 해열·진통제 (현지 구매용 이름)" },
+  { g:2, n:"Bodrex 보드렉스", t:"발리 국민 진통제 — 두통·생리통·감기" },
+  { g:2, n:"Paramex 파라멕스", t:"두통·몸살에 빠른 진통 효과" },
+  { g:2, n:"Bioplacenton 비오플라센톤", t:"후시딘 대용 — 상처 살균·치료 연고" },
+  { g:2, n:"Zam-Buk 잠북연고", t:"만능연고 — 타박상·모기물림·화상 등 두루 사용" },
+  { g:2, n:"Hydrocortisone 하이드로코르티손", t:"모기물린 곳·알레르기성 피부 트러블 연고" },
+  { g:2, n:"Mucohexin 무코헥신", t:"가래에 효과적인 목감기약 — 아이도 사용 가능" },
+  { g:2, n:"Cendo Xitrol 안약", t:"알레르기성 눈병에 사용" },
+  { g:2, n:"Soffell·Baygon (현지 모기기피제)", t:"국내 제품보다 발리 모기에 효과적 — 편의점 어디서나 구매 가능" },
+  { g:2, n:"Bali Boat 알로에베라 젤", t:"100% 발리 순수 알로에 — 썬번 진정, 가격도 괜찮음" },
   { g:3, n:"인스턴트 죽 (전자레인지용)", t:"발리벨리 걸렸을 때 대비" },
   { g:3, n:"여행자보험", t:"출국 전 가입 확인" }
 ];
@@ -1121,13 +1147,18 @@ async function ckLoad(){
     .order("grp_idx").order("sort").order("created_at");
   if(error){ ckToast("불러오기 실패: " + error.message); console.error(error); return; }
 
-  if(data.length === 0 && ckCat.slug === "medicine"){
-    const rows = CK_SEED.map((s,i)=>({
-      category:"medicine", grp_idx:s.g, name:s.n, note:s.t, sort:i
-    }));
-    const { error: e2 } = await sb.from("checklist_items").insert(rows);
-    if(e2){ ckToast("초기 데이터 생성 실패: " + e2.message); return; }
-    return ckLoad();
+  /* 의약품: 시드 목록 중 DB에 없는 항목만 자동 추가 (기존 체크상태 보존) */
+  if(ckCat.slug === "medicine"){
+    const existing = new Set(data.map(i=>i.name));
+    const missing = CK_SEED.filter(s=>!existing.has(s.n));
+    if(missing.length > 0){
+      const rows = missing.map((s,i)=>({
+        category:"medicine", grp_idx:s.g, name:s.n, note:s.t, sort:100+i
+      }));
+      const { error: e2 } = await sb.from("checklist_items").insert(rows);
+      if(e2){ ckToast("항목 동기화 실패: " + e2.message); console.error(e2); ckRender(data); return; }
+      return ckLoad();
+    }
   }
   ckRender(data);
 }
