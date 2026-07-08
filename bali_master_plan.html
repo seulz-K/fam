@@ -1073,8 +1073,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1585,9 +1585,9 @@ function edStart(el){
   bar.innerHTML = `
     <button class="ed-save">저장</button>
     <button class="ed-cancel">취소</button>
-    ${isTable ? `<button class="ed-rowadd">＋ 행 추가</button><button class="ed-rowdel">－ 마지막 행</button>` : ""}
+    ${isTable ? `<button class="ed-rowadd">＋ 행 (커서 아래)</button><button class="ed-rowdel">－ 행 (커서 위치)</button>` : ""}
     ${hasEdit ? `<button class="ed-revert">원본으로</button>` : ""}
-    <span class="ed-hint">${isTable ? "칸을 눌러 내용을 고치세요" : "텍스트를 직접 고친 뒤 저장"}</span>`;
+    <span class="ed-hint">${isTable ? "칸을 눌러 수정 — 행 추가/삭제는 커서 위치 기준" : "텍스트를 직접 고친 뒤 저장"}</span>`;
   el.insertAdjacentElement("afterend", bar);
 
   bar.querySelector(".ed-save").addEventListener("click", ()=> edSave(el, bar));
@@ -1601,18 +1601,50 @@ function edStart(el){
     edEnd(el, bar, edOriginal[key]);
     ckToast("원본으로 되돌렸습니다 ✓");
   });
+  /* 커서가 위치한 행 찾기 (없으면 마지막 행) */
+  function cursorRow(){
+    const selObj = window.getSelection();
+    if(selObj && selObj.rangeCount){
+      let node = selObj.getRangeAt(0).startContainer;
+      if(node.nodeType === 3) node = node.parentElement;
+      const tr = node?.closest?.("tr");
+      if(tr && el.contains(tr)) return tr;
+    }
+    return el.rows.length ? el.rows[el.rows.length - 1] : null;
+  }
   bar.querySelector(".ed-rowadd")?.addEventListener("click", ()=>{
-    const rows = el.rows;
-    if(!rows.length) return;
-    const last = rows[rows.length - 1];
-    const nr = last.cloneNode(true);
-    [...nr.cells].forEach(c => c.innerHTML = "&nbsp;");
-    last.insertAdjacentElement("afterend", nr);
+    const base = cursorRow();
+    if(!base) return;
+    const nr = base.cloneNode(true);
+    [...nr.cells].forEach(c => { c.innerHTML = "&nbsp;"; });
+    // 헤더(th) 행 기준으로 추가하면 일반 셀(td)로 변환
+    [...nr.cells].forEach(c => {
+      if(c.tagName === "TH"){
+        const td = document.createElement("td");
+        td.innerHTML = "&nbsp;";
+        c.replaceWith(td);
+      }
+    });
+    base.insertAdjacentElement("afterend", nr);
+    // 새 행 첫 칸에 커서 이동
+    const first = nr.cells[0];
+    if(first){
+      const r = document.createRange();
+      r.selectNodeContents(first);
+      r.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges(); s.addRange(r);
+      first.focus?.();
+    }
+    ckToast("커서 아래에 행이 추가되었습니다");
   });
   bar.querySelector(".ed-rowdel")?.addEventListener("click", ()=>{
-    const rows = el.rows;
-    if(rows.length <= 1){ ckToast("더 이상 삭제할 행이 없어요"); return; }
-    rows[rows.length - 1].remove();
+    if(el.rows.length <= 1){ ckToast("더 이상 삭제할 행이 없어요"); return; }
+    const base = cursorRow();
+    if(!base) return;
+    if(base.querySelector("th")){ ckToast("제목 행은 삭제할 수 없어요"); return; }
+    base.remove();
+    ckToast("행이 삭제되었습니다");
   });
 }
 
