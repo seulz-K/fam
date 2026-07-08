@@ -493,6 +493,57 @@
   }
   .ck-toast.show{opacity:1;}
 
+  /* ───────── LIVE NOTES (살아있는 업데이트) ───────── */
+  .pn-btn{
+    display:inline-flex;align-items:center;gap:3px;margin-left:8px;
+    font-family:var(--mono);font-size:10.5px;vertical-align:middle;
+    padding:2px 8px;border-radius:999px;border:1px solid var(--line);
+    background:#fff;color:var(--sub);cursor:pointer;transition:all .12s;
+    white-space:nowrap;user-select:none;
+  }
+  .pn-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .pn-btn.has{background:#F3E8D4;border-color:#D8C9A5;color:#8A651E;font-weight:700;}
+  .pn-panel{
+    margin-top:10px;padding:12px 14px;
+    background:#FDF6E3;border:1px solid #E8D9AE;border-left:3px solid var(--gold);
+    border-radius:0 10px 10px 0;font-size:13px;
+  }
+  .pn-item{
+    padding:8px 0;border-bottom:1px dashed #E8D9AE;
+  }
+  .pn-item:last-of-type{border-bottom:none;}
+  .pn-item .pn-txt{line-height:1.65;white-space:pre-wrap;word-break:break-word;color:var(--volcanic);}
+  .pn-meta{
+    display:flex;align-items:center;gap:8px;margin-top:5px;
+    font-family:var(--mono);font-size:10.5px;color:#A8996F;
+  }
+  .pn-meta button{
+    border:none;background:none;font-family:var(--mono);font-size:10.5px;
+    color:#A8996F;cursor:pointer;padding:1px 4px;border-radius:4px;
+  }
+  .pn-meta button:hover{color:var(--coral);background:#F9ECE7;}
+  .pn-form{margin-top:10px;}
+  .pn-form textarea{
+    width:100%;min-height:64px;padding:9px 11px;font-family:inherit;font-size:13px;
+    border:1px solid #E8D9AE;border-radius:8px;background:#fff;resize:vertical;
+    color:var(--volcanic);line-height:1.6;
+  }
+  .pn-form textarea:focus{outline:2px solid var(--gold);}
+  .pn-form .pn-actions{display:flex;gap:8px;margin-top:7px;}
+  .pn-form button{
+    font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;
+    padding:7px 15px;border-radius:7px;border:none;cursor:pointer;
+  }
+  .pn-form .pn-save{background:var(--gold);color:#fff;}
+  .pn-form .pn-save:hover{background:#9A6F20;}
+  .pn-form .pn-cancel{background:#EEE7D4;color:var(--sub);}
+  .pn-addline{
+    margin-top:8px;font-family:var(--mono);font-size:11px;font-weight:700;
+    color:#B09045;background:none;border:1px dashed #D8C9A5;border-radius:7px;
+    padding:6px 13px;cursor:pointer;
+  }
+  .pn-addline:hover{background:#F3E8D4;}
+
   footer{
     max-width:960px;margin:80px auto 0;
     padding:26px 20px 60px;
@@ -958,8 +1009,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1045,6 +1096,7 @@ async function ckInit(){
   }
   $id("ck-status").style.display = "block";
   $id("ck-add").style.display = "flex";
+  pnInit(session);
   await ckLoadCats();
 }
 
@@ -1276,6 +1328,164 @@ $id("ck-in-btn").addEventListener("click", async ()=>{
   ckLoad();
 });
 $id("ck-in-name").addEventListener("keydown", e=>{ if(e.key==="Enter") $id("ck-in-btn").click(); });
+
+/* =========================================================
+   살아있는 업데이트 (LIVE NOTES)
+   — 일정 본문 어디에나 메모를 추가/수정하고 DB에 저장
+   ========================================================= */
+let pnUser = null;
+let pnNotes = {};   // note_key -> [note, ...]
+
+async function pnInit(session){
+  pnUser = session.user;
+  const { data, error } = await sb.from("plan_notes").select("*").order("created_at");
+  if(error){ console.error("notes load:", error); return; }
+  pnNotes = {};
+  data.forEach(n => { (pnNotes[n.note_key] ??= []).push(n); });
+  pnAnnotate();
+}
+
+/* ---------- 메모 버튼 부착 위치 ---------- */
+function pnAnnotate(){
+  // ① 날짜/섹션 제목
+  document.querySelectorAll("section.day, section.block").forEach(sec=>{
+    if(!sec.id || sec.id === "checklist") return;
+    const h = sec.querySelector(".day-head h3, .block-title h2");
+    if(!h) return;
+    pnAttach(h, "sec:" + sec.id, h.closest(".day-head, .block-title"), false);
+  });
+  // ② 출발 전 체크리스트 각 항목
+  document.querySelectorAll("#prep ol.todo li").forEach((li, i)=>{
+    const b = li.querySelector("b");
+    const key = "todo:" + (b ? b.textContent.trim() : "item" + i);
+    pnAttach(b || li, key, li, true);
+  });
+  // ③ 옵션 카드 (OPT A/B/C, 식당 등)
+  document.querySelectorAll("section .opt").forEach(opt=>{
+    const sec = opt.closest("section");
+    const nm = opt.querySelector(".name");
+    if(!sec || !nm) return;
+    const key = "opt:" + sec.id + ":" + nm.textContent.trim();
+    pnAttach(nm, key, opt, true);
+  });
+}
+
+function pnAttach(anchorEl, key, panelHost, inside){
+  if(anchorEl.querySelector?.(".pn-btn")) return;
+  const notes = pnNotes[key] || [];
+  const btn = document.createElement("span");
+  btn.className = "pn-btn" + (notes.length ? " has" : "");
+  btn.innerHTML = notes.length ? `📌 ${notes.length}` : "✏️";
+  btn.title = "업데이트 메모";
+  btn.addEventListener("click", (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    pnTogglePanel(key, panelHost, inside, btn);
+  });
+  anchorEl.appendChild(btn);
+  // 메모가 이미 있으면 처음부터 펼쳐서 보여줌
+  if(notes.length) pnTogglePanel(key, panelHost, inside, btn, true);
+}
+
+/* ---------- 패널 열기/닫기 ---------- */
+function pnTogglePanel(key, host, inside, btn, forceOpen){
+  let panel = (inside ? host : host.parentElement)
+    .querySelector(`.pn-panel[data-key="${CSS.escape(key)}"]`);
+  if(panel){
+    if(forceOpen) return;
+    panel.remove();
+    return;
+  }
+  panel = document.createElement("div");
+  panel.className = "pn-panel";
+  panel.dataset.key = key;
+  pnRenderPanel(panel, key, btn);
+  if(inside) host.appendChild(panel);
+  else host.insertAdjacentElement("afterend", panel);
+}
+
+function pnRenderPanel(panel, key, btn){
+  const notes = pnNotes[key] || [];
+  panel.innerHTML = "";
+
+  notes.forEach(note=>{
+    const item = document.createElement("div");
+    item.className = "pn-item";
+    const d = new Date(note.updated_at || note.created_at);
+    const dstr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    item.innerHTML = `
+      <div class="pn-txt">${esc(note.content)}</div>
+      <div class="pn-meta">
+        <span>👤 ${esc(note.author)} · ${dstr}${note.updated_at !== note.created_at ? " (수정됨)" : ""}</span>
+        <button class="pn-edit">수정</button>
+        <button class="pn-del">삭제</button>
+      </div>`;
+
+    item.querySelector(".pn-edit").addEventListener("click", ()=>{
+      pnShowForm(panel, key, btn, note, item);
+    });
+    item.querySelector(".pn-del").addEventListener("click", async ()=>{
+      if(!confirm("이 메모를 삭제할까요?")) return;
+      const { error } = await sb.from("plan_notes").delete().eq("id", note.id);
+      if(error){ ckToast("삭제 실패: " + error.message); return; }
+      pnNotes[key] = (pnNotes[key]||[]).filter(n=>n.id !== note.id);
+      pnRenderPanel(panel, key, btn);
+      pnSyncBtn(btn, key);
+    });
+    panel.appendChild(item);
+  });
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "pn-addline";
+  addBtn.textContent = "＋ 업데이트 추가";
+  addBtn.addEventListener("click", ()=> pnShowForm(panel, key, btn));
+  panel.appendChild(addBtn);
+}
+
+/* ---------- 작성/수정 폼 ---------- */
+function pnShowForm(panel, key, btn, note, itemEl){
+  panel.querySelector(".pn-form")?.remove();
+  const form = document.createElement("div");
+  form.className = "pn-form";
+  form.innerHTML = `
+    <textarea placeholder="알게 된 정보, 예약 결과, 변경사항 등을 적어주세요">${note ? esc(note.content) : ""}</textarea>
+    <div class="pn-actions">
+      <button class="pn-save">${note ? "수정 저장" : "저장"}</button>
+      <button class="pn-cancel">취소</button>
+    </div>`;
+
+  form.querySelector(".pn-cancel").addEventListener("click", ()=> form.remove());
+  form.querySelector(".pn-save").addEventListener("click", async ()=>{
+    const content = form.querySelector("textarea").value.trim();
+    if(!content){ ckToast("내용을 입력해주세요"); return; }
+    const author = (pnUser.email || "가족").split("@")[0];
+
+    if(note){
+      const now = new Date().toISOString();
+      const { error } = await sb.from("plan_notes")
+        .update({ content, updated_at: now }).eq("id", note.id);
+      if(error){ ckToast("수정 실패: " + error.message); return; }
+      note.content = content; note.updated_at = now;
+    } else {
+      const { data, error } = await sb.from("plan_notes")
+        .insert({ note_key: key, content, author }).select().single();
+      if(error){ ckToast("저장 실패: " + error.message); return; }
+      (pnNotes[key] ??= []).push(data);
+    }
+    ckToast("저장되었습니다 ✓");
+    pnRenderPanel(panel, key, btn);
+    pnSyncBtn(btn, key);
+  });
+
+  if(itemEl) itemEl.insertAdjacentElement("afterend", form);
+  else panel.appendChild(form);
+  form.querySelector("textarea").focus();
+}
+
+function pnSyncBtn(btn, key){
+  const n = (pnNotes[key]||[]).length;
+  btn.className = "pn-btn" + (n ? " has" : "");
+  btn.innerHTML = n ? `📌 ${n}` : "✏️";
+}
 
 ckInit();
 </script>
