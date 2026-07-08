@@ -462,6 +462,17 @@
   }
   .ckbox.pk.checked{border-color:var(--gold);color:#8A651E;background:#F3E8D4;}
   .ckbox.pk.checked .bx{background:var(--gold);border-color:var(--gold);}
+  .ck-edit{
+    border:none;background:none;color:#C9BFA9;font-size:14px;cursor:pointer;
+    padding:2px 6px;border-radius:6px;transition:all .12s;
+  }
+  .ck-edit:hover{color:var(--sea);background:#E7F0EE;}
+  .ckg-e,.ckg-x{
+    font-size:12px;font-weight:400;color:#C9BFA9;cursor:pointer;
+    padding:1px 5px;border-radius:5px;margin-left:2px;
+  }
+  .ckg-e:hover{color:var(--sea);background:#E7F0EE;}
+  .ckg-x:hover{color:var(--coral);background:#F9ECE7;}
   .ck-del{
     border:none;background:none;color:#C9BFA9;font-size:15px;cursor:pointer;
     padding:2px 6px;border-radius:6px;transition:all .12s;
@@ -1073,8 +1084,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1191,9 +1202,12 @@ function ckRenderTabs(){
     const b = document.createElement("button");
     b.className = "ctab" + (cat.slug===ckCat.slug ? " on" : "");
     b.innerHTML = `${esc(cat.icon)} ${esc(cat.name)}` +
-      (cat.slug===ckCat.slug ? ` <span class="ctab-x" title="이 분류 삭제">✕</span>` : "");
+      (cat.slug===ckCat.slug
+        ? ` <span class="ctab-e" title="분류 이름 수정">✎</span><span class="ctab-x" title="이 분류 삭제">✕</span>`
+        : "");
     b.addEventListener("click", async (e)=>{
       if(e.target.classList.contains("ctab-x")){ ckDeleteCat(cat); return; }
+      if(e.target.classList.contains("ctab-e")){ ckRenameCat(cat); return; }
       if(cat.slug === ckCat.slug) return;
       ckCat = cat;
       ckRenderTabs();
@@ -1223,6 +1237,19 @@ async function ckAddCat(){
   if(error){ ckToast("분류 추가 실패: " + error.message); return; }
   ckCat = { slug };  // 새 탭으로 전환
   ckToast("분류가 추가되었습니다 ✓");
+  ckLoadCats();
+}
+
+/* ---------- 분류 이름/아이콘 수정 ---------- */
+async function ckRenameCat(cat){
+  const name = prompt("분류 이름 수정", cat.name);
+  if(name === null) return;
+  if(!name.trim()){ ckToast("이름을 입력해주세요"); return; }
+  const icon = prompt("아이콘 이모지 수정", cat.icon) ?? cat.icon;
+  const { error } = await sb.from("checklist_categories")
+    .update({ name: name.trim(), icon: (icon||"📦").trim() }).eq("slug", cat.slug);
+  if(error){ ckToast("수정 실패: " + error.message); return; }
+  ckToast("분류가 수정되었습니다 ✓");
   ckLoadCats();
 }
 
@@ -1310,7 +1337,11 @@ function ckRender(items){
     const gDiv = document.createElement("div");
     gDiv.className = "ck-group";
     // 그룹이 1개뿐이면 제목 생략해 깔끔하게
-    if(groups.length > 1) gDiv.innerHTML = `<h4>${esc(gName)}</h4>`;
+    if(groups.length > 1){
+      gDiv.innerHTML = `<h4>${esc(gName)} <span class="ckg-e" title="그룹 이름 수정">✎</span><span class="ckg-x" title="그룹 삭제(비어있을 때)">✕</span></h4>`;
+      gDiv.querySelector(".ckg-e").addEventListener("click", ()=> ckRenameGroup(gi));
+      gDiv.querySelector(".ckg-x").addEventListener("click", ()=> ckDeleteGroup(gi, gItems.length));
+    }
     gItems.forEach(item=>gDiv.appendChild(ckRow(item)));
     wrap.appendChild(gDiv);
   });
@@ -1326,6 +1357,57 @@ function ckRender(items){
   }
 }
 
+/* ---------- 그룹 이름 수정 / 빈 그룹 삭제 ---------- */
+async function ckRenameGroup(gi){
+  const groups = [...(ckCat.groups || ["기본"])];
+  const name = prompt("그룹 이름 수정", groups[gi]);
+  if(name === null || !name.trim()) return;
+  groups[gi] = name.trim();
+  const { error } = await sb.from("checklist_categories")
+    .update({ groups }).eq("slug", ckCat.slug);
+  if(error){ ckToast("수정 실패: " + error.message); return; }
+  ckCat.groups = groups;
+  ckFillGroupSelect();
+  ckToast("그룹 이름이 수정되었습니다 ✓");
+  ckLoad();
+}
+
+async function ckDeleteGroup(gi, itemCount){
+  if(itemCount > 0){ ckToast("항목이 있는 그룹은 삭제할 수 없어요 — 항목을 먼저 옮기거나 삭제해주세요"); return; }
+  const groups = [...(ckCat.groups || ["기본"])];
+  if(groups.length <= 1){ ckToast("마지막 그룹은 삭제할 수 없어요"); return; }
+  if(!confirm(`"${groups[gi]}" 그룹을 삭제할까요?`)) return;
+  groups.splice(gi, 1);
+  // 뒤 그룹들의 인덱스 당김
+  const { error } = await sb.from("checklist_categories")
+    .update({ groups }).eq("slug", ckCat.slug);
+  if(error){ ckToast("삭제 실패: " + error.message); return; }
+  // 삭제된 그룹 뒤에 있던 항목들의 grp_idx를 1씩 감소
+  const { data: shift } = await sb.from("checklist_items")
+    .select("id, grp_idx").eq("category", ckCat.slug).gt("grp_idx", gi);
+  for(const it of (shift||[])){
+    await sb.from("checklist_items").update({ grp_idx: it.grp_idx - 1 }).eq("id", it.id);
+  }
+  ckCat.groups = groups;
+  ckFillGroupSelect();
+  ckToast("그룹이 삭제되었습니다");
+  ckLoad();
+}
+
+/* ---------- 항목 이름/메모 수정 ---------- */
+async function ckEditItem(item){
+  const name = prompt("항목 이름 수정", item.name);
+  if(name === null) return;
+  if(!name.trim()){ ckToast("이름을 입력해주세요"); return; }
+  const note = prompt("메모 수정 (비우면 메모 없음)", item.note || "");
+  if(note === null) return;
+  const { error } = await sb.from("checklist_items")
+    .update({ name: name.trim(), note: note.trim() }).eq("id", item.id);
+  if(error){ ckToast("수정 실패: " + error.message); return; }
+  ckToast("항목이 수정되었습니다 ✓");
+  ckLoad();
+}
+
 function ckRow(item){
   const row = document.createElement("div");
   row.className = "ck-item" + (item.prepared && item.packed ? " done" : "");
@@ -1337,9 +1419,12 @@ function ckRow(item){
     <label class="ckbox pk ${item.packed?"checked":""}" data-f="packed">
       <input type="checkbox" ${item.packed?"checked":""}><span class="bx"></span>패킹
     </label>
+    <button class="ck-edit" title="이름/메모 수정">✎</button>
     <button class="ck-del" title="삭제">✕</button>
     ${item.note ? `<span class="nt">${esc(item.note)}</span>` : ""}
   `;
+
+  row.querySelector(".ck-edit").addEventListener("click", ()=> ckEditItem(item));
 
   row.querySelectorAll(".ckbox").forEach(lb=>{
     lb.addEventListener("change", async ()=>{
