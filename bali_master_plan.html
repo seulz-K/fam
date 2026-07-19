@@ -569,6 +569,31 @@
   body.structmode .pn-panel{display:none !important;}
   body.structmode #st-fab{border-width:2px;}
 
+  .chip-add{
+    border-style:dashed !important;color:var(--gold) !important;
+    border-color:#D8C9A5 !important;
+  }
+  .st-secctrl{margin-left:10px;}
+  .sec-hidden-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;
+  }
+  .sec-hidden-row button{
+    font-family:var(--mono);font-size:11px;font-weight:700;
+    padding:5px 12px;border-radius:7px;border:none;cursor:pointer;
+    background:var(--sea);color:#fff;
+  }
+  .ed-fmt{
+    display:inline-flex;gap:3px;align-items:center;
+    padding:0 6px;border-left:1px solid #BFD4CF;border-right:1px solid #BFD4CF;
+  }
+  .ed-fmt button{
+    font-size:12px;padding:6px 9px;border-radius:6px;
+    border:1px solid #BFD4CF;background:#fff;cursor:pointer;font-weight:800;
+  }
+  .ed-fmt button:hover{background:#E7F0EE;}
+  .ed-fmt .fmt-c{font-weight:900;}
+
   #st-modal{
     position:fixed;inset:0;background:rgba(33,29,24,.45);z-index:100;
     display:flex;align-items:center;justify-content:center;padding:20px;
@@ -1108,8 +1133,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1546,9 +1571,16 @@ async function liveInit(session){
   if(pnRes.error) console.error("notes load:", pnRes.error);
   else pnRes.data.forEach(n => { (pnNotes[n.note_key] ??= []).push(n); });
 
+  // 0) 커스텀 대분류 생성 + 순서/숨김/칩이름 적용
+  secLoadMeta();
+  secBuildCustom();
+  secApplyOrder();
+  secApplyHidden();
+  secApplyChipLabels();
+
   // 1) 저장된 "섹션 구성" 먼저 적용
   Object.keys(edEdits).forEach(k=>{
-    if(!k.endsWith(":body")) return;
+    if(!k.endsWith(":body") || k.startsWith("__")) return;
     const sec = document.getElementById(k.slice(0, -5));
     if(sec) sec.innerHTML = edEdits[k].html;
   });
@@ -1564,6 +1596,240 @@ async function liveInit(session){
   // 5) 버튼 부착 + 구성 모드 토글 버튼
   document.querySelectorAll("[data-edkey]").forEach(el => decorate(el));
   stMakeFab();
+  secMakeAddChip();
+}
+
+/* =========================================================
+   대분류(섹션) 관리 — plan_edits에 메타 JSON으로 저장
+   ========================================================= */
+let secMeta = { custom: [], order: [], hidden: [], labels: {} };
+
+function secLoadMeta(){
+  const j = k => { try { return JSON.parse(edEdits[k]?.html || "null"); } catch(e){ return null; } };
+  secMeta.custom = j("__custom_sections") || [];
+  secMeta.order  = j("__section_order")   || [];
+  secMeta.hidden = j("__section_hidden")  || [];
+  secMeta.labels = j("__chip_labels")     || {};
+}
+
+async function secSaveMeta(){
+  const author = (pnUser.email || "가족").split("@")[0];
+  const rows = [
+    { ed_key:"__custom_sections", html: JSON.stringify(secMeta.custom) },
+    { ed_key:"__section_order",   html: JSON.stringify(secMeta.order) },
+    { ed_key:"__section_hidden",  html: JSON.stringify(secMeta.hidden) },
+    { ed_key:"__chip_labels",     html: JSON.stringify(secMeta.labels) }
+  ].map(r => ({ ...r, author, updated_at: new Date().toISOString() }));
+  const { error } = await sb.from("plan_edits").upsert(rows);
+  if(error){ ckToast("분류 저장 실패: " + error.message); return false; }
+  Object.assign(edEdits, Object.fromEntries(rows.map(r=>[r.ed_key, r])));
+  return true;
+}
+
+function secWrap(){ return document.querySelector(".wrap") || document.body; }
+function secRail(){ return document.querySelector(".daynav .rail"); }
+function secChip(id){ return secRail()?.querySelector(`a.chip[href="#${CSS.escape(id)}"]`); }
+
+function secBuildCustom(){
+  const linksSec = document.getElementById("links");
+  const linksChip = secChip("links");
+  secMeta.custom.forEach(c=>{
+    if(document.getElementById(c.id)) return;
+    const sec = document.createElement("section");
+    sec.className = "block";
+    sec.id = c.id;
+    sec.innerHTML = `
+      <div class="block-title"><span class="tag">Custom</span><h2>${esc(c.name)}</h2></div>
+      <p class="block-lede">✎ 버튼으로 내용을 채우고, 🧩 구성 편집으로 다른 섹션의 카드를 가져올 수 있어요.</p>`;
+    if(linksSec) linksSec.insertAdjacentElement("beforebegin", sec);
+    else secWrap().appendChild(sec);
+
+    const chip = document.createElement("a");
+    chip.className = "chip hd";
+    chip.href = "#" + c.id;
+    chip.textContent = c.name;
+    if(linksChip) linksChip.insertAdjacentElement("beforebegin", chip);
+    else secRail()?.appendChild(chip);
+  });
+}
+
+function secApplyOrder(){
+  if(!secMeta.order.length) return;
+  const wrap = secWrap();
+  const rail = secRail();
+  const anchor = wrap.querySelector("footer");
+  secMeta.order.forEach(id=>{
+    const sec = document.getElementById(id);
+    if(sec) anchor ? anchor.insertAdjacentElement("beforebegin", sec) : wrap.appendChild(sec);
+    const chip = secChip(id);
+    if(chip && rail) rail.appendChild(chip);
+  });
+}
+
+function secApplyHidden(){
+  secMeta.hidden.forEach(id=>{
+    document.getElementById(id)?.remove();
+    secChip(id)?.remove();
+  });
+}
+
+function secApplyChipLabels(){
+  Object.entries(secMeta.labels).forEach(([id, label])=>{
+    const chip = secChip(id);
+    if(chip) chip.textContent = label;
+  });
+}
+
+/* ---------- ＋ 분류 칩 ---------- */
+function secMakeAddChip(){
+  const rail = secRail();
+  if(!rail || rail.querySelector(".chip-add")) return;
+  const a = document.createElement("a");
+  a.className = "chip chip-add";
+  a.href = "javascript:void(0)";
+  a.textContent = "＋ 분류";
+  a.addEventListener("click", secAddModal);
+  rail.appendChild(a);
+}
+
+function secAddModal(){
+  document.getElementById("st-modal")?.remove();
+  const m = document.createElement("div");
+  m.id = "st-modal";
+  const hiddenRows = secMeta.hidden.map(id=>
+    `<div class="sec-hidden-row"><span>${esc(secMeta.labels[id] || id.toUpperCase())}</span><button data-restore="${id}">복원</button></div>`).join("");
+  m.innerHTML = `
+    <div class="st-modal-box">
+      <h5>새 대분류 추가</h5>
+      <input type="text" id="sec-new-name" placeholder="분류 이름 (예: 방콕 맛집)" maxlength="20"
+        style="width:100%;font-family:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;">
+      <div class="st-modal-actions">
+        <button id="sec-do-add">추가</button>
+        <button id="st-do-close">취소</button>
+      </div>
+      ${hiddenRows ? `<h5 style="margin-top:18px">숨긴 분류 복원</h5>${hiddenRows}` : ""}
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", e=>{ if(e.target === m) m.remove(); });
+  m.querySelector("#st-do-close").addEventListener("click", ()=> m.remove());
+  m.querySelector("#sec-do-add").addEventListener("click", async ()=>{
+    const name = m.querySelector("#sec-new-name").value.trim();
+    if(!name){ ckToast("분류 이름을 입력해주세요"); return; }
+    const id = "c" + Date.now();
+    secMeta.custom.push({ id, name });
+    secMeta.labels[id] = name;
+    if(await secSaveMeta()){
+      ckToast("분류가 추가되었습니다 ✓");
+      setTimeout(()=>location.reload(), 700);
+    }
+  });
+  m.querySelectorAll("[data-restore]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      secMeta.hidden = secMeta.hidden.filter(x=>x !== b.dataset.restore);
+      if(await secSaveMeta()){
+        ckToast("복원되었습니다 ✓");
+        setTimeout(()=>location.reload(), 700);
+      }
+    });
+  });
+  m.querySelector("#sec-new-name").focus();
+}
+
+/* ---------- 구성 모드: 섹션 제어 바 ---------- */
+function secAttachCtrls(){
+  document.querySelectorAll("section[id]").forEach(sec=>{
+    if(sec.id === "checklist") return;
+    const head = sec.querySelector(".day-head, .block-title");
+    if(!head || head.querySelector(".st-secctrl")) return;
+    const isCustom = secMeta.custom.some(c=>c.id === sec.id);
+    const c = document.createElement("div");
+    c.className = "st-ctrl st-secctrl";
+    c.innerHTML = `
+      <button data-a="secup" title="섹션 위로">▲</button>
+      <button data-a="secdown" title="섹션 아래로">▼</button>
+      <button data-a="secdup" title="섹션 복제">⧉</button>
+      <button data-a="secname" title="탭 이름 변경">✎</button>
+      <button data-a="secdel" title="${isCustom ? "섹션 삭제" : "섹션 숨기기"}">🗑</button>`;
+    c.addEventListener("click", e=>{
+      const a = e.target.dataset.a;
+      if(a){ e.preventDefault(); e.stopPropagation(); secAction(sec, a); }
+    });
+    head.appendChild(c);
+  });
+}
+
+async function secAction(sec, a){
+  const id = sec.id;
+  const chip = secChip(id);
+
+  if(a === "secup" || a === "secdown"){
+    let t = a === "secup" ? sec.previousElementSibling : sec.nextElementSibling;
+    while(t && t.tagName !== "SECTION") t = a === "secup" ? t.previousElementSibling : t.nextElementSibling;
+    if(!t || t.id === "checklist" && false){ }
+    if(!t){ ckToast("더 이동할 수 없어요"); return; }
+    if(a === "secup") t.insertAdjacentElement("beforebegin", sec);
+    else t.insertAdjacentElement("afterend", sec);
+    const tChip = secChip(t.id);
+    if(chip && tChip){
+      if(a === "secup") tChip.insertAdjacentElement("beforebegin", chip);
+      else tChip.insertAdjacentElement("afterend", chip);
+    }
+    secMeta.order = [...document.querySelectorAll("section[id]")].map(s=>s.id);
+    await secSaveMeta();
+    ckToast("순서가 저장되었습니다 ✓");
+    sec.scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+  else if(a === "secname"){
+    const cur = secMeta.labels[id] || chip?.textContent || id;
+    const name = prompt("상단 탭에 표시할 이름", cur);
+    if(name === null || !name.trim()) return;
+    secMeta.labels[id] = name.trim();
+    const ci = secMeta.custom.findIndex(c=>c.id === id);
+    if(ci >= 0) secMeta.custom[ci].name = name.trim();
+    if(chip) chip.textContent = name.trim();
+    await secSaveMeta();
+    ckToast("탭 이름이 변경되었습니다 ✓");
+  }
+  else if(a === "secdup"){
+    if(!confirm("이 섹션 전체를 복제할까요?")) return;
+    const nid = "c" + Date.now();
+    const name = (secMeta.labels[id] || chip?.textContent || id) + " 복사";
+    const clone = sec.cloneNode(true);
+    clone.querySelectorAll(INJECTED + ",.st-secctrl").forEach(x=>x.remove());
+    clone.querySelectorAll("[data-edkey]").forEach(el=>{
+      delete el.dataset.edkey; delete el.dataset.edtype; delete el.dataset.ednote;
+    });
+    const author = (pnUser.email || "가족").split("@")[0];
+    secMeta.custom.push({ id: nid, name });
+    secMeta.labels[nid] = name;
+    const { error } = await sb.from("plan_edits").upsert({
+      ed_key: nid + ":body", html: clone.innerHTML, author, updated_at: new Date().toISOString()
+    });
+    if(error){ ckToast("복제 실패: " + error.message); return; }
+    if(await secSaveMeta()){
+      ckToast("섹션이 복제되었습니다 ✓");
+      setTimeout(()=>location.reload(), 700);
+    }
+  }
+  else if(a === "secdel"){
+    const isCustom = secMeta.custom.some(c=>c.id === id);
+    if(isCustom){
+      if(!confirm("이 섹션과 내용·메모가 모두 삭제됩니다. 계속할까요?")) return;
+      secMeta.custom = secMeta.custom.filter(c=>c.id !== id);
+      delete secMeta.labels[id];
+      secMeta.order = secMeta.order.filter(x=>x !== id);
+      await sb.from("plan_edits").delete().like("ed_key", id + ":%");
+      await sb.from("plan_notes").delete().like("note_key", "nk:" + id + ":%");
+      await sb.from("plan_notes").delete().eq("note_key", "sec:" + id);
+    } else {
+      if(!confirm("기본 섹션은 삭제 대신 숨김 처리됩니다. (＋ 분류에서 복원 가능) 계속할까요?")) return;
+      if(!secMeta.hidden.includes(id)) secMeta.hidden.push(id);
+    }
+    if(await secSaveMeta()){
+      ckToast("처리되었습니다 ✓");
+      setTimeout(()=>location.reload(), 700);
+    }
+  }
 }
 
 /* ---------- 위치 기반 키 부여 (root 범위 지정 가능) ---------- */
@@ -1695,6 +1961,16 @@ function edStart(el){
   bar.innerHTML = `
     <button class="ed-save">저장</button>
     <button class="ed-cancel">취소</button>
+    <span class="ed-fmt">
+      <button data-cmd="bold" title="굵게"><b>B</b></button>
+      <button data-cmd="italic" title="기울임"><i>I</i></button>
+      <button data-cmd="underline" title="밑줄"><u>U</u></button>
+      <button class="fmt-c" data-color="#BC5238" title="빨강" style="color:#BC5238">A</button>
+      <button class="fmt-c" data-color="#0E5155" title="청록" style="color:#0E5155">A</button>
+      <button class="fmt-c" data-color="#B8862B" title="골드" style="color:#B8862B">A</button>
+      <button class="fmt-c" data-color="#211D18" title="검정" style="color:#211D18">A</button>
+      <button data-cmd="removeFormat" title="서식 지우기">✕서식</button>
+    </span>
     <button class="ed-link">🔗 링크</button>
     ${isTable ? `<button class="ed-rowadd">＋ 행 (커서 아래)</button><button class="ed-rowdel">－ 행 (커서 위치)</button>` : ""}
     ${hasEdit ? `<button class="ed-revert">원본으로</button>` : ""}
@@ -1703,6 +1979,15 @@ function edStart(el){
 
   bar.querySelector(".ed-save").addEventListener("click", ()=> edSave(el, bar));
   bar.querySelector(".ed-cancel").addEventListener("click", ()=> edEnd(el, bar, el.dataset.prev));
+  /* 서식 버튼: 선택 영역 유지를 위해 mousedown 차단 */
+  bar.querySelectorAll(".ed-fmt button").forEach(fb=>{
+    fb.addEventListener("mousedown", e=> e.preventDefault());
+    fb.addEventListener("click", ()=>{
+      if(fb.dataset.cmd) document.execCommand(fb.dataset.cmd, false, null);
+      else if(fb.dataset.color) document.execCommand("foreColor", false, fb.dataset.color);
+    });
+  });
+
   bar.querySelector(".ed-link").addEventListener("click", ()=>{
     let url = prompt("링크 주소 (예: www.naver.com 또는 https://...)");
     if(!url || !url.trim()) return;
@@ -1859,6 +2144,7 @@ function stToggle(){
       if(!MOVABLE.includes(el.dataset.edtype)) return;
       stAttachCtrl(el);
     });
+    secAttachCtrls();
     stUpdateMsg();
     ckToast("항목을 이동·복제·삭제한 뒤 '변경 저장'을 누르세요");
   } else {
@@ -1870,7 +2156,7 @@ function stToggle(){
       ckToast("변경 저장 또는 취소를 먼저 눌러주세요");
       return;
     }
-    document.querySelectorAll(".st-ctrl").forEach(x=>x.remove());
+    document.querySelectorAll(".st-ctrl, .st-secctrl").forEach(x=>x.remove());
     document.querySelectorAll("[data-edkey]").forEach(el => decorate(el));
   }
 }
