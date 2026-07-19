@@ -591,9 +591,7 @@
   #st-do-copy{background:var(--gold);color:#fff;}
   #st-do-close{background:#EEE7D4;color:var(--sub);}
   .st-modal-hint{margin:12px 0 0;font-size:11.5px;color:var(--sub);line-height:1.5;}
-  .pn-txt a{color:var(--sea);font-weight:700;word-break:break-all;
-    border-bottom:1px solid #B9CFC9;text-decoration:none;}
-  .pn-txt a:hover{color:var(--sea-deep);}
+  .pn-txt .lk{margin:3px 4px 0 0;}
 
   .pn-btn{
     display:inline-flex;align-items:center;gap:3px;margin-left:8px;
@@ -1110,8 +1108,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1697,6 +1695,7 @@ function edStart(el){
   bar.innerHTML = `
     <button class="ed-save">저장</button>
     <button class="ed-cancel">취소</button>
+    <button class="ed-link">🔗 링크</button>
     ${isTable ? `<button class="ed-rowadd">＋ 행 (커서 아래)</button><button class="ed-rowdel">－ 행 (커서 위치)</button>` : ""}
     ${hasEdit ? `<button class="ed-revert">원본으로</button>` : ""}
     <span class="ed-hint">${isTable ? "칸을 눌러 수정 — 행 추가/삭제는 커서 위치 기준" : "텍스트를 직접 고친 뒤 저장"}</span>`;
@@ -1704,6 +1703,42 @@ function edStart(el){
 
   bar.querySelector(".ed-save").addEventListener("click", ()=> edSave(el, bar));
   bar.querySelector(".ed-cancel").addEventListener("click", ()=> edEnd(el, bar, el.dataset.prev));
+  bar.querySelector(".ed-link").addEventListener("click", ()=>{
+    let url = prompt("링크 주소 (예: www.naver.com 또는 https://...)");
+    if(!url || !url.trim()) return;
+    url = url.trim();
+    const href = /^https?:\/\//.test(url) ? url : "https://" + url.replace(/^\/+/, "");
+    const defLabel = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    const label = (prompt("버튼에 표시할 이름", defLabel) || defLabel).trim();
+
+    const a = document.createElement("a");
+    a.className = "lk";
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = label;
+
+    // 커서 위치에 삽입, 커서가 요소 밖이면 맨 끝에
+    let inserted = false;
+    const selObj = window.getSelection();
+    if(selObj && selObj.rangeCount){
+      const r = selObj.getRangeAt(0);
+      let node = r.startContainer;
+      if(node.nodeType === 3) node = node.parentElement;
+      if(el.contains(node)){
+        r.collapse(false);
+        r.insertNode(document.createTextNode(" "));
+        r.insertNode(a);
+        inserted = true;
+      }
+    }
+    if(!inserted){
+      el.appendChild(document.createTextNode(" "));
+      el.appendChild(a);
+    }
+    ckToast("링크 버튼이 들어갔어요 — 저장을 눌러 확정하세요");
+  });
+
   bar.querySelector(".ed-revert")?.addEventListener("click", async ()=>{
     if(!confirm("저장된 수정을 지우고 원본 문구로 되돌릴까요?")) return;
     const key = el.dataset.edkey;
@@ -2143,7 +2178,7 @@ function pnShowForm(panel, key, btn, note, itemEl){
   const form = document.createElement("div");
   form.className = "pn-form";
   form.innerHTML = `
-    <textarea placeholder="알게 된 정보, 예약 결과, 변경사항 등을 적어주세요 (https:// 주소는 자동으로 링크가 돼요)">${note ? esc(note.content) : ""}</textarea>
+    <textarea placeholder="알게 된 정보, 예약 결과, 변경사항 등을 적어주세요 (www.naver.com 처럼 주소를 쓰면 자동으로 버튼 링크가 돼요)">${note ? esc(note.content) : ""}</textarea>
     <div class="pn-actions">
       <button class="pn-save">${note ? "수정 저장" : "저장"}</button>
       <button class="pn-cancel">취소</button>
@@ -2178,8 +2213,11 @@ function pnShowForm(panel, key, btn, note, itemEl){
 }
 
 function linkify(s){
-  return s.replace(/(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  return s.replace(/((https?:\/\/|www\.)[^\s<]+)/g, (m)=>{
+    const href = m.startsWith("http") ? m : "https://" + m;
+    const label = m.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    return `<a class="lk" href="${href}" target="_blank" rel="noopener">${label}</a>`;
+  });
 }
 
 function pnSyncBtn(btn, key){
