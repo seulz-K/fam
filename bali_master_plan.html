@@ -569,6 +569,32 @@
   body.structmode .pn-panel{display:none !important;}
   body.structmode #st-fab{border-width:2px;}
 
+  #st-modal{
+    position:fixed;inset:0;background:rgba(33,29,24,.45);z-index:100;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .st-modal-box{
+    background:var(--paper);border-radius:14px;padding:22px 20px;
+    width:100%;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,.3);
+  }
+  .st-modal-box h5{margin:0 0 12px;font-size:15px;}
+  .st-modal-box select{
+    width:100%;font-family:inherit;font-size:14px;padding:10px 12px;
+    border:1px solid var(--line);border-radius:8px;background:#fff;
+  }
+  .st-modal-actions{display:flex;gap:8px;margin-top:14px;}
+  .st-modal-actions button{
+    flex:1;font-family:var(--mono);font-size:12px;font-weight:700;
+    padding:10px 0;border-radius:8px;border:none;cursor:pointer;
+  }
+  #st-do-move{background:var(--sea);color:#fff;}
+  #st-do-copy{background:var(--gold);color:#fff;}
+  #st-do-close{background:#EEE7D4;color:var(--sub);}
+  .st-modal-hint{margin:12px 0 0;font-size:11.5px;color:var(--sub);line-height:1.5;}
+  .pn-txt a{color:var(--sea);font-weight:700;word-break:break-all;
+    border-bottom:1px solid #B9CFC9;text-decoration:none;}
+  .pn-txt a:hover{color:var(--sea-deep);}
+
   .pn-btn{
     display:inline-flex;align-items:center;gap:3px;margin-left:8px;
     font-family:var(--mono);font-size:10.5px;vertical-align:middle;
@@ -1084,8 +1110,8 @@
 /* =========================================================
    Supabase 설정 — index.html / main.html과 동일한 값으로 교체
    ========================================================= */
-const SUPABASE_URL = "https://enezfhqbedvpqcmfuecb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_lrbZM7Axj3U8CaSYCUisQA_XYf_fbB7";
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---------- 기본 카테고리 (categories 테이블이 비어있을 때 1회 시드) ---------- */
@@ -1503,10 +1529,11 @@ const ED_DEFS = [
   { sel: ".warn",            lsel: ".warn",           type: "warn",    note: false },
   { sel: "section .verdict", lsel: ".verdict",        type: "verdict", note: false },
   { sel: "#prep ol.todo li", lsel: "ol.todo li",      type: "todo",    note: true  },
-  { sel: "section .opt",     lsel: ".opt",            type: "opt",     note: true  }
+  { sel: "section .opt",     lsel: ".opt",            type: "opt",     note: true  },
+  { sel: "ul.linklist li",   lsel: "ul.linklist li",  type: "link",    note: true  }
 ];
 const SIDE_BTN = ["table", "bag", "lede", "h4", "loc"];  // 컨트롤을 요소 밖(위)에 다는 타입
-const MOVABLE  = ["opt","todo","table","note","warn","verdict","h4","loc","bag","lede"];
+const MOVABLE  = ["opt","todo","table","note","warn","verdict","h4","loc","bag","lede","link"];
 const INJECTED = ".ed-btn,.pn-btn,.pn-panel,.pn-form,.ed-toolbar,.ed-chiprow,.st-ctrl";
 
 async function liveInit(session){
@@ -1546,7 +1573,7 @@ function assignKeys(root){
   const counters = {};
   ED_DEFS.forEach(def=>{
     root.querySelectorAll(def.sel).forEach(el=>{
-      if(el.closest("#checklist") || el.closest("#links")) return;
+      if(el.closest("#checklist")) return;
       const sec = el.closest("section");
       const sid = sec ? sec.id : "root";
       const ck = sid + ":" + def.type;
@@ -1826,6 +1853,7 @@ function stAttachCtrl(el){
     <button data-a="up" title="위로">▲</button>
     <button data-a="down" title="아래로">▼</button>
     <button data-a="dup" title="복제">⧉</button>
+    <button data-a="move" title="다른 섹션으로 이동/복사">➡</button>
     <button data-a="del" title="삭제">🗑</button>`;
   c.addEventListener("click", (e)=>{
     const a = e.target.dataset.a;
@@ -1874,6 +1902,10 @@ function stAction(el, a){
     stAttachCtrl(clone);
     ckToast("복제되었습니다 — 저장 후 ✎로 내용을 고치세요");
   }
+  else if(a === "move"){
+    stMovePicker(el);
+    return;   // dirty 처리는 모달에서
+  }
   else if(a === "del"){
     const hasNotes = el.dataset.ednote && (pnNotes[noteKeyOf(el)]||[]).length;
     const msg = hasNotes
@@ -1885,6 +1917,83 @@ function stAction(el, a){
     el.remove();
   }
   if(sec){ stDirty.add(sec.id); stUpdateMsg(); }
+}
+
+/* ---------- 다른 섹션으로 이동/복사 ---------- */
+function stSectionList(){
+  return [...document.querySelectorAll("section[id]")]
+    .filter(s => s.id !== "checklist")
+    .map(s => {
+      const h = s.querySelector(".day-head h3, .block-title h2");
+      const t = h ? h.cloneNode(true) : null;
+      t?.querySelectorAll(".ed-btn,.pn-btn,.st-ctrl").forEach(x=>x.remove());
+      return { id: s.id, label: t ? t.textContent.trim().slice(0, 30) : s.id.toUpperCase() };
+    });
+}
+
+function stMovePicker(el){
+  document.getElementById("st-modal")?.remove();
+  const srcSec = el.closest("section");
+  const m = document.createElement("div");
+  m.id = "st-modal";
+  m.innerHTML = `
+    <div class="st-modal-box">
+      <h5>어느 섹션으로 보낼까요?</h5>
+      <select id="st-dest">
+        ${stSectionList().filter(s=>s.id!==srcSec?.id)
+          .map(s=>`<option value="${s.id}">${esc(s.label)}</option>`).join("")}
+      </select>
+      <div class="st-modal-actions">
+        <button id="st-do-move">➡ 이동</button>
+        <button id="st-do-copy">⧉ 복사</button>
+        <button id="st-do-close">취소</button>
+      </div>
+      <p class="st-modal-hint">보낸 항목은 대상 섹션 맨 아래에 놓여요. 그 뒤 ▲▼로 위치를 잡으세요.</p>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", (e)=>{ if(e.target === m) m.remove(); });
+  m.querySelector("#st-do-close").addEventListener("click", ()=> m.remove());
+  m.querySelector("#st-do-move").addEventListener("click", ()=>{
+    stSendTo(el, m.querySelector("#st-dest").value, false);
+    m.remove();
+  });
+  m.querySelector("#st-do-copy").addEventListener("click", ()=>{
+    stSendTo(el, m.querySelector("#st-dest").value, true);
+    m.remove();
+  });
+}
+
+function stDestContainer(sec, el){
+  if(el.tagName === "LI")
+    return sec.querySelector("ol.todo, ul.linklist") || sec.querySelector(".day-body") || sec;
+  return sec.querySelector(".day-body") || sec;
+}
+
+function stSendTo(el, destId, isCopy){
+  const destSec = document.getElementById(destId);
+  const srcSec = el.closest("section");
+  if(!destSec){ ckToast("대상 섹션을 찾을 수 없어요"); return; }
+  const container = stDestContainer(destSec, el);
+  const block = blockOf(el);
+
+  if(isCopy){
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll(INJECTED).forEach(x=>x.remove());
+    clone.dataset.edtype = el.dataset.edtype;
+    clone.dataset.ednote = "";   // 복사본은 메모 없이 시작
+    clone.dataset.edkey = "tmp:" + Date.now();
+    container.appendChild(clone);
+    stAttachCtrl(clone);
+    stDirty.add(destId);
+    ckToast("복사되었습니다 — 변경 저장을 눌러 확정하세요");
+  } else {
+    block.forEach(n => container.appendChild(n));
+    if(srcSec) stDirty.add(srcSec.id);
+    stDirty.add(destId);
+    ckToast("이동되었습니다 — 변경 저장을 눌러 확정하세요");
+    el.scrollIntoView({ behavior:"smooth", block:"center" });
+  }
+  stUpdateMsg();
 }
 
 function stUpdateMsg(){
@@ -2001,7 +2110,7 @@ function pnRenderPanel(panel, key, btn){
     const d = new Date(note.updated_at || note.created_at);
     const dstr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
     item.innerHTML = `
-      <div class="pn-txt">${esc(note.content)}</div>
+      <div class="pn-txt">${linkify(esc(note.content))}</div>
       <div class="pn-meta">
         <span>👤 ${esc(note.author)} · ${dstr}${note.updated_at !== note.created_at ? " (수정됨)" : ""}</span>
         <button class="pn-edit">수정</button>
@@ -2034,7 +2143,7 @@ function pnShowForm(panel, key, btn, note, itemEl){
   const form = document.createElement("div");
   form.className = "pn-form";
   form.innerHTML = `
-    <textarea placeholder="알게 된 정보, 예약 결과, 변경사항 등을 적어주세요">${note ? esc(note.content) : ""}</textarea>
+    <textarea placeholder="알게 된 정보, 예약 결과, 변경사항 등을 적어주세요 (https:// 주소는 자동으로 링크가 돼요)">${note ? esc(note.content) : ""}</textarea>
     <div class="pn-actions">
       <button class="pn-save">${note ? "수정 저장" : "저장"}</button>
       <button class="pn-cancel">취소</button>
@@ -2066,6 +2175,11 @@ function pnShowForm(panel, key, btn, note, itemEl){
   if(itemEl) itemEl.insertAdjacentElement("afterend", form);
   else panel.appendChild(form);
   form.querySelector("textarea").focus();
+}
+
+function linkify(s){
+  return s.replace(/(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener">$1</a>');
 }
 
 function pnSyncBtn(btn, key){
